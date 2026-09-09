@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { UnitMaterialTools } from "../components/UnitMaterialTools";
 import "../contents.css";
 
 type UnitState = "PENDIENTE" | "EN_CURSO" | "IMPARTIDA";
@@ -203,7 +204,7 @@ export function ContentsPage() {
         <div>
           <p className="eyebrow">PROGRAMACIÓN DOCENTE</p>
           <h2>Contenidos</h2>
-          <p>Cada unidad es un contenido curricular de la asignatura. No existe un nivel separado de temas.</p>
+          <p>Cada unidad puede incluir material docente privado y usarlo con Ollama para preparar ejercicios, prácticas, explicaciones y repasos.</p>
         </div>
         <div className="contents-header-actions">
           <label>
@@ -328,6 +329,7 @@ export function ContentsPage() {
                     <button className="secondary compact-button" type="button" onClick={() => beginEditUnit(unit)}>Editar</button>
                     <button className="text-button content-delete" type="button" onClick={() => void deleteUnit(unit)}>Eliminar</button>
                   </div>
+                  <UnitMaterialTools unit={unit} />
                 </article>
               ))}
             </div>
