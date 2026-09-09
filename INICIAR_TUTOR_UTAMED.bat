@@ -35,9 +35,19 @@ if not exist api\prisma\dev.db (
   if errorlevel 1 goto :error
   echo.
 ) else (
+  call :stop_old_api
+
   echo Comprobando esquema de base de datos y Prisma Client...
   call npm run db:update
-  if errorlevel 1 goto :error
+  if errorlevel 1 (
+    echo.
+    echo Prisma no pudo actualizarse en el primer intento.
+    echo Esperando a que Windows libere los archivos y reintentando...
+    timeout /t 2 /nobreak >nul
+    call :stop_old_api
+    call npm run db:update
+    if errorlevel 1 goto :prisma_error
+  )
   echo Base de datos preparada.
   echo.
 )
@@ -48,6 +58,24 @@ echo API: http://localhost:3000
 echo.
 call npm run dev
 exit /b 0
+
+:stop_old_api
+set "API_PID="
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":3000" ^| findstr "LISTENING"') do (
+  set "API_PID=%%P"
+  echo Cerrando una instancia anterior de Tutor UTAMED API ^(PID %%P^)...
+  taskkill /PID %%P /F >nul 2>&1
+)
+if defined API_PID timeout /t 1 /nobreak >nul
+exit /b 0
+
+:prisma_error
+echo.
+echo ERROR: Windows sigue bloqueando el motor de Prisma.
+echo Cierra cualquier ventana anterior de Tutor UTAMED y vuelve a ejecutar este archivo.
+echo Si persiste, reinicia Windows una sola vez para liberar la DLL bloqueada.
+pause
+exit /b 1
 
 :error
 echo.
