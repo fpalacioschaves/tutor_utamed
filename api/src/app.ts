@@ -2,6 +2,7 @@ import cors from "cors";
 import express, { type ErrorRequestHandler } from "express";
 import { Prisma } from "@prisma/client";
 import { coursesRouter } from "./routes/courses";
+import { groupsRouter } from "./routes/groups";
 import { contentsRouter } from "./routes/contents";
 import { dashboardRouter } from "./routes/dashboard";
 import { enrollmentsRouter } from "./routes/enrollments";
@@ -23,10 +24,11 @@ app.use(cors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:5173" }));
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, service: "Tutor UTAMED API", version: "0.16.0" });
+  res.json({ ok: true, service: "Tutor UTAMED API", version: "0.16.1" });
 });
 
 app.use("/api/courses", coursesRouter);
+app.use("/api/groups", groupsRouter);
 app.use("/api/contents", contentsRouter);
 app.use("/api/subjects", subjectsRouter);
 app.use("/api/reports", reportsRouter);

@@ -85,9 +85,26 @@ model CursoAcademico {
   activo      Boolean      @default(true)
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
+  grupos      Grupo[]
   asignaturas Asignatura[]
 
   @@map("cursos_academicos")
+}
+
+model Grupo {
+  id               Int              @id @default(autoincrement())
+  cursoAcademicoId Int              @map("curso_academico_id")
+  nombre           String
+  descripcion      String?
+  activo           Boolean          @default(true)
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  cursoAcademico   CursoAcademico   @relation(fields: [cursoAcademicoId], references: [id])
+  asignaturas      Asignatura[]
+
+  @@unique([cursoAcademicoId, nombre])
+  @@index([cursoAcademicoId])
+  @@map("grupos")
 }
 
 model Alumno {
@@ -115,6 +132,7 @@ model Alumno {
 model Asignatura {
   id               Int                @id @default(autoincrement())
   cursoAcademicoId Int                @map("curso_academico_id")
+  grupoId          Int?               @map("grupo_id")
   nombre           String
   codigo           String?
   grupo            String             @default("")
@@ -122,6 +140,7 @@ model Asignatura {
   createdAt        DateTime           @default(now()) @map("created_at")
   updatedAt        DateTime           @updatedAt @map("updated_at")
   cursoAcademico   CursoAcademico     @relation(fields: [cursoAcademicoId], references: [id])
+  grupoAsignado    Grupo?             @relation(fields: [grupoId], references: [id])
   matriculas       Matricula[]
   temas            Tema[]
   unidades         Unidad[]
@@ -133,6 +152,7 @@ model Asignatura {
   comunicaciones   Comunicacion[]
 
   @@index([cursoAcademicoId])
+  @@index([grupoId])
   @@unique([cursoAcademicoId, nombre, grupo])
   @@map("asignaturas")
 }
@@ -154,6 +174,8 @@ model Matricula {
   @@map("matriculas")
 }
 
+// Compatibilidad con la versión anterior. La interfaz ya no crea ni usa
+// temas separados: Unidad es el único nivel curricular visible.
 model Tema {
   id           Int        @id @default(autoincrement())
   asignaturaId Int        @map("asignatura_id")

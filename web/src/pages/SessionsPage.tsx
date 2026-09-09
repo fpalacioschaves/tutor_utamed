@@ -14,13 +14,6 @@ const SESSION_STATUS_LABELS: Record<Session["estado"], string> = {
   CANCELADA: "Cancelada",
 };
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("es-ES", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
 function formatTime(value: string) {
   return new Intl.DateTimeFormat("es-ES", {
     hour: "2-digit",
@@ -171,7 +164,6 @@ export function SessionsPage({ onOpenSession }: Props) {
       unidadId: selectedUnitId === "" ? null : Number(selectedUnitId),
       tipo: form.get("tipo"),
       titulo: form.get("titulo"),
-      tema: form.get("tema"),
       inicio: form.get("inicio"),
       fin: form.get("fin"),
       estado: form.get("estado") || "PROGRAMADA",
@@ -295,11 +287,6 @@ export function SessionsPage({ onOpenSession }: Props) {
             </label>
 
             <label>
-              Tema
-              <input name="tema" placeholder="Ej. Arrays" defaultValue={editing?.tema ?? ""} />
-            </label>
-
-            <label>
               Inicio
               <input name="inicio" type="datetime-local" required defaultValue={editing ? toLocalInputValue(editing.inicio) : ""} />
             </label>
@@ -332,7 +319,7 @@ export function SessionsPage({ onOpenSession }: Props) {
         <div className="list-toolbar list-toolbar-wide" aria-label="Filtrar sesiones">
           <label className="search-field">
             <span>Buscar</span>
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Asignatura, tema, título o unidad" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Asignatura, título o unidad" />
           </label>
           <label>
             Periodo
@@ -385,7 +372,7 @@ export function SessionsPage({ onOpenSession }: Props) {
                   <th>Horario</th>
                   <th>Asignatura</th>
                   <th>Tipo</th>
-                  <th>Unidad / tema</th>
+                  <th>Unidad</th>
                   <th>Estado</th>
                   <th>Registros</th>
                   <th>Acciones</th>
@@ -400,7 +387,7 @@ export function SessionsPage({ onOpenSession }: Props) {
                     <td>{session.tipo === "CLASE" ? "Clase" : "Tutoría grupal"}</td>
                     <td>
                       <strong>{session.unidad ? `U${session.unidad.orden} · ${session.unidad.titulo}` : "Sin unidad"}</strong>
-                      <small className="block-note">{session.tema || session.titulo || "Sin tema indicado"}</small>
+                      {(session.titulo || session.tema) && <small className="block-note">{session.titulo || session.tema}</small>}
                     </td>
                     <td><span className={`status-pill session-state-${session.estado.toLowerCase()}`}>{SESSION_STATUS_LABELS[session.estado]}</span></td>
                     <td>{session._count?.registros ?? 0}</td>
