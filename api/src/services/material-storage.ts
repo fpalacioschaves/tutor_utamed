@@ -21,6 +21,10 @@ export type StoredMaterial = {
   createdAt: string;
 };
 
+type PdfParseResult = { text?: string };
+type PdfParseFunction = (buffer: Buffer) => Promise<PdfParseResult>;
+const pdfParse = require("pdf-parse") as PdfParseFunction;
+
 const REPO_ROOT = path.resolve(__dirname, "../../..");
 const CONTENT_ROOT = path.join(REPO_ROOT, "local-content");
 const DATA_ROOT = path.join(REPO_ROOT, "local-data");
@@ -36,6 +40,7 @@ const PLAIN_TEXT_EXTENSIONS = new Set([
 ]);
 
 const MARKUP_EXTENSIONS = new Set([".xml", ".html", ".htm", ".xhtml"]);
+const ARCHIVE_EXTENSIONS = new Set([".docx", ".odt", ".elp", ".zip"]);
 
 async function ensureStorage() {
   await Promise.all([
@@ -178,17 +183,56 @@ function extractZipText(buffer: Buffer, extension: string) {
   return normalizeText(text);
 }
 
-function extractText(buffer: Buffer, extension: string) {
+async function extractText(buffer: Buffer, extension: string) {
   if (PLAIN_TEXT_EXTENSIONS.has(extension)) {
     const raw = buffer.toString("utf8");
     return normalizeText(MARKUP_EXTENSIONS.has(extension) ? markupToText(raw) : raw);
   }
 
-  if ([".docx", ".odt", ".elp", ".zip"].includes(extension)) {
+  if (ARCHIVE_EXTENSIONS.has(extension)) {
     return extractZipText(buffer, extension);
   }
 
+  if (extension === ".pdf") {
+    const result = await pdfParse(buffer);
+    return normalizeText(result.text || "");
+  }
+
   return "";
+}
+
+function canExtract(extension: string) {
+  return PLAIN_TEXT_EXTENSIONS.has(extension) || ARCHIVE_EXTENSIONS.has(extension) || extension === ".pdf";
+}
+
+async function extractAndStoreText(id: string, buffer: Buffer, extension: string) {
+  let extractedTextPath: string | null = null;
+  let extractionStatus: MaterialExtractionStatus = "UNSUPPORTED";
+  let extractionMessage: string | null = "Archivo guardado. Este formato no tiene extracción automática de texto.";
+  let extractedChars = 0;
+
+  try {
+    const text = await extractText(buffer, extension);
+    if (text) {
+      const textFile = `${id}.txt`;
+      const absoluteTextPath = path.join(TEXT_ROOT, textFile);
+      await fs.writeFile(absoluteTextPath, text, "utf8");
+      extractedTextPath = path.relative(REPO_ROOT, absoluteTextPath);
+      extractedChars = text.length;
+      extractionStatus = "READY";
+      extractionMessage = null;
+    } else if (canExtract(extension)) {
+      extractionStatus = "EMPTY";
+      extractionMessage = extension === ".pdf"
+        ? "El PDF se guardó, pero no contiene texto seleccionable. Si es un PDF escaneado necesitará OCR."
+        : "El archivo se guardó, pero no se encontró texto utilizable.";
+    }
+  } catch (error) {
+    extractionStatus = "ERROR";
+    extractionMessage = error instanceof Error ? error.message : "No se pudo extraer el texto";
+  }
+
+  return { extractedTextPath, extractionStatus, extractionMessage, extractedChars };
 }
 
 function publicMaterial(material: StoredMaterial) {
@@ -196,8 +240,34 @@ function publicMaterial(material: StoredMaterial) {
   return publicFields;
 }
 
+export function absoluteMaterialPath(material: StoredMaterial) {
+  const absolute = path.resolve(REPO_ROOT, material.relativePath);
+  const contentRoot = path.resolve(CONTENT_ROOT) + path.sep;
+  if (!absolute.startsWith(contentRoot)) throw new Error("Ruta local de material no válida");
+  return absolute;
+}
+
 export async function listMaterials(unitId: number) {
   const materials = await readRegistry();
+  let registryChanged = false;
+
+  for (const material of materials) {
+    if (material.unitId !== unitId || material.extension !== ".pdf" || material.extractionStatus !== "UNSUPPORTED") continue;
+
+    try {
+      const buffer = await fs.readFile(absoluteMaterialPath(material));
+      const extraction = await extractAndStoreText(material.id, buffer, material.extension);
+      Object.assign(material, extraction);
+      registryChanged = true;
+    } catch (error) {
+      material.extractionStatus = "ERROR";
+      material.extractionMessage = error instanceof Error ? error.message : "No se pudo procesar el PDF";
+      registryChanged = true;
+    }
+  }
+
+  if (registryChanged) await writeRegistry(materials);
+
   return materials
     .filter((material) => material.unitId === unitId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -228,29 +298,7 @@ export async function saveMaterial(input: {
   const absolutePath = path.join(unitDirectory, storedName);
   await fs.writeFile(absolutePath, buffer);
 
-  let extractedTextPath: string | null = null;
-  let extractionStatus: MaterialExtractionStatus = "UNSUPPORTED";
-  let extractionMessage: string | null = "Archivo guardado. Este formato no tiene extracción automática de texto.";
-  let extractedChars = 0;
-
-  try {
-    const text = extractText(buffer, extension);
-    if (text) {
-      const textFile = `${id}.txt`;
-      const absoluteTextPath = path.join(TEXT_ROOT, textFile);
-      await fs.writeFile(absoluteTextPath, text, "utf8");
-      extractedTextPath = path.relative(REPO_ROOT, absoluteTextPath);
-      extractedChars = text.length;
-      extractionStatus = "READY";
-      extractionMessage = null;
-    } else if (PLAIN_TEXT_EXTENSIONS.has(extension) || [".docx", ".odt", ".elp", ".zip"].includes(extension)) {
-      extractionStatus = "EMPTY";
-      extractionMessage = "El archivo se guardó, pero no se encontró texto utilizable.";
-    }
-  } catch (error) {
-    extractionStatus = "ERROR";
-    extractionMessage = error instanceof Error ? error.message : "No se pudo extraer el texto";
-  }
+  const extraction = await extractAndStoreText(id, buffer, extension);
 
   const material: StoredMaterial = {
     id,
@@ -261,10 +309,7 @@ export async function saveMaterial(input: {
     mimeType: input.mimeType?.trim() || "application/octet-stream",
     sizeBytes: buffer.length,
     relativePath: path.relative(REPO_ROOT, absolutePath),
-    extractedTextPath,
-    extractionStatus,
-    extractionMessage,
-    extractedChars,
+    ...extraction,
     createdAt: new Date().toISOString(),
   };
 
@@ -277,13 +322,6 @@ export async function saveMaterial(input: {
 export async function getStoredMaterial(id: string) {
   const materials = await readRegistry();
   return materials.find((material) => material.id === id) ?? null;
-}
-
-export function absoluteMaterialPath(material: StoredMaterial) {
-  const absolute = path.resolve(REPO_ROOT, material.relativePath);
-  const contentRoot = path.resolve(CONTENT_ROOT) + path.sep;
-  if (!absolute.startsWith(contentRoot)) throw new Error("Ruta local de material no válida");
-  return absolute;
 }
 
 export async function removeMaterial(id: string) {

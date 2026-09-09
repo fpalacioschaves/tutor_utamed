@@ -29,6 +29,16 @@ if not exist node_modules (
   echo.
 )
 
+if not exist node_modules\pdf-parse\package.json (
+  if not exist api\node_modules\pdf-parse\package.json (
+    echo Instalando soporte local para lectura de PDF...
+    call npm install -w api --package-lock=false --no-audit --no-fund
+    if errorlevel 1 goto :pdf_dependency_error
+    echo Soporte PDF instalado.
+    echo.
+  )
+)
+
 if not exist api\prisma\dev.db (
   echo Primera ejecucion: creando la base de datos local...
   call npm run setup
@@ -68,6 +78,13 @@ for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":3000" ^| findstr "LISTENING
 )
 if defined API_PID timeout /t 1 /nobreak >nul
 exit /b 0
+
+:pdf_dependency_error
+echo.
+echo ERROR: No se ha podido instalar el soporte local para PDF.
+echo Comprueba tu conexion a Internet y vuelve a ejecutar este archivo.
+pause
+exit /b 1
 
 :prisma_error
 echo.
