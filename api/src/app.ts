@@ -17,6 +17,7 @@ import { incidentsRouter } from "./routes/incidents";
 import { communicationsRouter } from "./routes/communications";
 import { alertsRouter } from "./routes/alerts";
 import { aiRouter } from "./routes/ai";
+import { unitAiRouter } from "./routes/unit-ai";
 import { materialsRouter } from "./routes/materials";
 
 export const app = express();
@@ -25,7 +26,7 @@ app.use(cors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:5173" }));
 app.use(express.json({ limit: "36mb" }));
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, service: "Tutor UTAMED API", version: "0.17.0" });
+  res.json({ ok: true, service: "Tutor UTAMED API", version: "0.17.1" });
 });
 
 app.use("/api/courses", coursesRouter);
@@ -41,6 +42,9 @@ app.use("/api/follow-ups", followUpsRouter);
 app.use("/api/incidents", incidentsRouter);
 app.use("/api/communications", communicationsRouter);
 app.use("/api/alerts", alertsRouter);
+// Esta ruta debe ir antes del router general de IA: intercepta exclusivamente
+// /api/ai/units/:id/generate con el nuevo contexto por relevancia.
+app.use("/api/ai/units", unitAiRouter);
 app.use("/api/ai", aiRouter);
 app.use("/api/students", studentsRouter);
 app.use("/api/enrollments", enrollmentsRouter);
