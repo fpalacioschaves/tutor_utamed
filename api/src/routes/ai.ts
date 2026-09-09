@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { buildStudentAiContext } from "../services/student-ai-context";
-import { buildUnitMaterialContext } from "../services/material-storage";
+import { buildUnitAssociatedFilesContext } from "../services/unit-material-context";
 import { readAiConfig, validateLocalOllamaUrl, writeAiConfig } from "../services/ai-config";
 
 export const aiRouter = Router();
@@ -185,7 +185,7 @@ aiRouter.post("/units/:id/generate", async (req, res) => {
     }
     validateLocalOllamaUrl(config.baseUrl);
 
-    const materials = await buildUnitMaterialContext(unitId);
+    const materials = await buildUnitAssociatedFilesContext(unitId);
     const unitContext = [
       `Asignatura: ${unit.asignatura.nombre}${unit.asignatura.grupo ? ` · ${unit.asignatura.grupo}` : ""}`,
       `Unidad: U${unit.orden} · ${unit.titulo}`,
