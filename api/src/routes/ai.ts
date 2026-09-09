@@ -7,9 +7,10 @@ import { readAiConfig, validateLocalOllamaUrl, writeAiConfig } from "../services
 export const aiRouter = Router();
 
 type AnalysisMode = "SUMMARY" | "TUTORIAL" | "EVOLUTION";
-type TeachingMode = "EXERCISES" | "SOLVED_EXERCISE" | "PRACTICE" | "EXPLANATION" | "REVIEW";
+type TeachingMode = "CUSTOM" | "EXERCISES" | "SOLVED_EXERCISE" | "PRACTICE" | "EXPLANATION" | "REVIEW";
 
 const TEACHING_MODES = new Set<TeachingMode>([
+  "CUSTOM",
   "EXERCISES",
   "SOLVED_EXERCISE",
   "PRACTICE",
@@ -49,6 +50,9 @@ ${modeInstruction(mode)}`;
 }
 
 function teachingInstruction(mode: TeachingMode) {
+  if (mode === "CUSTOM") {
+    return `Atiende exactamente la petición libre del profesor. Puede pedir una explicación, ejercicios sobre una temática concreta, una práctica, ejemplos, un resumen, una comparación o cualquier otro recurso docente. La petición concreta aparecerá en el mensaje del usuario. Responde basándote en los archivos asociados a esta unidad y no amplíes el temario por tu cuenta.`;
+  }
   if (mode === "SOLVED_EXERCISE") {
     return `Crea un ejercicio representativo de dificultad media y después ofrece una solución completa y explicada paso a paso para el profesor. No utilices conocimientos que no aparezcan en los materiales.`;
   }
@@ -69,10 +73,12 @@ function teachingSystemPrompt(mode: TeachingMode) {
 
 REGLAS OBLIGATORIAS:
 - Trabaja exclusivamente con la unidad y los materiales locales suministrados.
+- Considera conjuntamente todos los archivos asociados a la unidad que Tutor UTAMED te proporciona.
+- Si el profesor pide una temática concreta, localízala dentro de esos materiales y céntrate en ella.
 - No introduzcas conceptos, APIs, sintaxis, patrones o contenidos que no estén presentes o claramente presupuestos por esos materiales.
-- Si el material no permite cumplir una parte de la tarea, indícalo en vez de inventar contenido.
-- Los ejercicios deben ser realizables con lo que ya se ha explicado en la unidad.
-- Distingue claramente el material destinado al alumnado de las soluciones o notas destinadas al profesor.
+- Si la petición no puede responderse con el material disponible, indícalo claramente en vez de inventar contenido.
+- Los ejercicios y prácticas deben ser realizables con lo que aparece en los materiales de la unidad.
+- Distingue claramente el material destinado al alumnado de las soluciones o notas destinadas al profesor cuando corresponda.
 - Responde en español y con formato claro para poder reutilizar el resultado en clase.
 - No muestres razonamiento interno ni cadenas de pensamiento.
 
@@ -147,8 +153,8 @@ aiRouter.post("/test", async (req, res) => {
 aiRouter.post("/units/:id/generate", async (req, res) => {
   try {
     const unitId = Number(req.params.id);
-    const mode = String(req.body?.mode || "EXERCISES").toUpperCase() as TeachingMode;
-    const extraInstruction = typeof req.body?.instruction === "string" ? req.body.instruction.trim().slice(0, 2000) : "";
+    const mode = String(req.body?.mode || "CUSTOM").toUpperCase() as TeachingMode;
+    const extraInstruction = typeof req.body?.instruction === "string" ? req.body.instruction.trim().slice(0, 4000) : "";
 
     if (!Number.isInteger(unitId)) {
       res.status(400).json({ error: "Identificador de unidad no válido" });
@@ -156,6 +162,10 @@ aiRouter.post("/units/:id/generate", async (req, res) => {
     }
     if (!TEACHING_MODES.has(mode)) {
       res.status(400).json({ error: "Tipo de generación docente no válido" });
+      return;
+    }
+    if (mode === "CUSTOM" && !extraInstruction) {
+      res.status(400).json({ error: "Escribe qué quieres pedir a la IA sobre esta unidad" });
       return;
     }
 
@@ -184,12 +194,16 @@ aiRouter.post("/units/:id/generate", async (req, res) => {
       unit.horasPrevistas !== null ? `Horas previstas: ${unit.horasPrevistas}` : "",
     ].filter(Boolean).join("\n");
 
-    if (!materials.text && !unit.descripcion) {
+    if (!materials.text) {
       res.status(409).json({
-        error: "Esta unidad no tiene todavía material con texto extraído ni descripción suficiente. Añade un material compatible antes de generar recursos.",
+        error: "Esta unidad no tiene archivos asociados preparados para IA. Añade o procesa al menos un material antes de consultar.",
       });
       return;
     }
+
+    const professorRequest = extraInstruction
+      ? `PETICIÓN DEL PROFESOR:\n${extraInstruction}\n\n`
+      : "";
 
     const response = await ollamaRequest(`${config.baseUrl}/api/chat`, {
       method: "POST",
@@ -201,10 +215,10 @@ aiRouter.post("/units/:id/generate", async (req, res) => {
           { role: "system", content: teachingSystemPrompt(mode) },
           {
             role: "user",
-            content: `${unitContext}\n\n${extraInstruction ? `INSTRUCCIÓN ADICIONAL DEL PROFESOR:\n${extraInstruction}\n\n` : ""}MATERIALES LOCALES DE LA UNIDAD:${materials.text || "\nNo hay texto de archivo disponible; usa únicamente la descripción de la unidad."}`,
+            content: `${unitContext}\n\n${professorRequest}ARCHIVOS ASOCIADOS A LA UNIDAD:${materials.text}`,
           },
         ],
-        options: { temperature: 0.25 },
+        options: { temperature: mode === "CUSTOM" ? 0.2 : 0.25 },
       }),
     });
 
