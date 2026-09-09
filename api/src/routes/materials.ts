@@ -69,9 +69,7 @@ materialsRouter.get("/:id/file", async (req, res, next) => {
     }
 
     const absolutePath = absoluteMaterialPath(material);
-    res.type(material.mimeType || material.extension || "application/octet-stream");
-    res.setHeader("Content-Disposition", `inline; filename*=UTF-8''${encodeURIComponent(material.originalName)}`);
-    res.sendFile(absolutePath, (error) => {
+    res.download(absolutePath, material.originalName, (error) => {
       if (error && !res.headersSent) next(error);
     });
   } catch (error) {
