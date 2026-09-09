@@ -91,7 +91,7 @@ unitAiRouter.post("/:id/generate", async (req, res) => {
       return;
     }
 
-    const request = mode === "CUSTOM" ? freeRequest : (freeRequest || taskForMode(mode));
+    const request = mode === "CUSTOM" ? freeRequest : taskForMode(mode);
     if (!request) {
       res.status(400).json({ error: "Escribe qué quieres pedir a la IA sobre esta unidad" });
       return;
