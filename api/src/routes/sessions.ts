@@ -61,7 +61,6 @@ sessionsRouter.post("/", async (req, res, next) => {
       unidadId,
       tipo = "CLASE",
       titulo,
-      tema,
       inicio,
       fin,
       estado = "PROGRAMADA",
@@ -98,7 +97,7 @@ sessionsRouter.post("/", async (req, res, next) => {
         unidadId: validatedUnitId,
         tipo,
         titulo: titulo || null,
-        tema: tema || null,
+        tema: null,
         inicio: start,
         fin: end,
         estado,
@@ -127,7 +126,6 @@ sessionsRouter.put("/:id", async (req, res, next) => {
       unidadId,
       tipo,
       titulo,
-      tema,
       inicio,
       fin,
       estado,
@@ -186,7 +184,9 @@ sessionsRouter.put("/:id", async (req, res, next) => {
         unidadId: validatedUnitId,
         tipo,
         titulo: titulo ? String(titulo).trim() : null,
-        tema: tema ? String(tema).trim() : null,
+        // El campo tema se conserva únicamente por compatibilidad con
+        // sesiones antiguas. Ya no se edita como dato separado.
+        tema: existing.tema,
         inicio: start,
         fin: end,
         estado: estado || existing.estado,
@@ -221,10 +221,6 @@ sessionsRouter.get("/:id", async (req, res, next) => {
 
     const [enrollments, records] = await Promise.all([
       prisma.matricula.findMany({
-        // Para pasar lista usamos la matrícula actual de la asignatura.
-        // No filtramos por fecha/hora de alta porque una matrícula creada
-        // después de la hora de una sesión del mismo día debe poder usarse
-        // igualmente para registrar esa clase en esta aplicación personal.
         where: {
           asignaturaId: session.asignaturaId,
           activa: true,
@@ -240,29 +236,17 @@ sessionsRouter.get("/:id", async (req, res, next) => {
     ]);
 
     const recordsByStudent = new Map(records.map((record) => [record.alumnoId, record]));
-
-    // Si un alumno dejó de estar matriculado después de una sesión pero ya
-    // tenía asistencia/observaciones guardadas, se conserva en el histórico.
-    const studentsById = new Map(
-      enrollments.map(({ alumno }) => [alumno.id, alumno]),
-    );
-    for (const record of records) {
-      studentsById.set(record.alumnoId, record.alumno);
-    }
+    const studentsById = new Map(enrollments.map(({ alumno }) => [alumno.id, alumno]));
+    for (const record of records) studentsById.set(record.alumnoId, record.alumno);
 
     const alumnos = Array.from(studentsById.values())
-      .sort((a, b) =>
-        `${a.apellidos} ${a.nombre}`.localeCompare(`${b.apellidos} ${b.nombre}`, "es"),
-      )
+      .sort((a, b) => `${a.apellidos} ${a.nombre}`.localeCompare(`${b.apellidos} ${b.nombre}`, "es"))
       .map((alumno) => ({
         ...alumno,
         registro: recordsByStudent.get(alumno.id) ?? null,
       }));
 
-    res.json({
-      ...session,
-      alumnos,
-    });
+    res.json({ ...session, alumnos });
   } catch (error) {
     next(error);
   }
@@ -308,15 +292,11 @@ sessionsRouter.put("/:id/records", async (req, res, next) => {
         const empty = !record.estadoAsistencia && !observation && !entry && !exit;
 
         if (empty) {
-          return prisma.registroSesion.deleteMany({
-            where: { sesionId: sessionId, alumnoId },
-          });
+          return prisma.registroSesion.deleteMany({ where: { sesionId: sessionId, alumnoId } });
         }
 
         return prisma.registroSesion.upsert({
-          where: {
-            sesionId_alumnoId: { sesionId: sessionId, alumnoId },
-          },
+          where: { sesionId_alumnoId: { sesionId: sessionId, alumnoId } },
           update: {
             estadoAsistencia: record.estadoAsistencia || null,
             horaEntrada: entry,
