@@ -34,6 +34,12 @@ if not exist api\prisma\dev.db (
   call npm run setup
   if errorlevel 1 goto :error
   echo.
+) else (
+  echo Comprobando esquema de base de datos y Prisma Client...
+  call npm run db:update
+  if errorlevel 1 goto :error
+  echo Base de datos preparada.
+  echo.
 )
 
 echo Arrancando Tutor UTAMED...
