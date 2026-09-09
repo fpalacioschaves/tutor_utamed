@@ -1,10 +1,21 @@
 import { Router } from "express";
+import { prisma } from "../lib/prisma";
 import { buildStudentAiContext } from "../services/student-ai-context";
+import { buildUnitMaterialContext } from "../services/material-storage";
 import { readAiConfig, validateLocalOllamaUrl, writeAiConfig } from "../services/ai-config";
 
 export const aiRouter = Router();
 
 type AnalysisMode = "SUMMARY" | "TUTORIAL" | "EVOLUTION";
+type TeachingMode = "EXERCISES" | "SOLVED_EXERCISE" | "PRACTICE" | "EXPLANATION" | "REVIEW";
+
+const TEACHING_MODES = new Set<TeachingMode>([
+  "EXERCISES",
+  "SOLVED_EXERCISE",
+  "PRACTICE",
+  "EXPLANATION",
+  "REVIEW",
+]);
 
 function cleanModelOutput(value: string) {
   return value.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
@@ -37,6 +48,38 @@ TAREA:
 ${modeInstruction(mode)}`;
 }
 
+function teachingInstruction(mode: TeachingMode) {
+  if (mode === "SOLVED_EXERCISE") {
+    return `Crea un ejercicio representativo de dificultad media y después ofrece una solución completa y explicada paso a paso para el profesor. No utilices conocimientos que no aparezcan en los materiales.`;
+  }
+  if (mode === "PRACTICE") {
+    return `Diseña una práctica de aproximadamente 60 minutos. Incluye objetivo, conocimientos previos estrictamente necesarios, enunciado para el alumnado, tareas ordenadas, criterios de comprobación y una solución guía completa separada al final.`;
+  }
+  if (mode === "EXPLANATION") {
+    return `Prepara una explicación docente clara y progresiva de la unidad. Empieza por la idea general, desarrolla los conceptos en orden, incorpora ejemplos compatibles con los materiales y termina señalando errores frecuentes que puedan deducirse del contenido. No añadas temario posterior.`;
+  }
+  if (mode === "REVIEW") {
+    return `Prepara un repaso breve de la unidad: ideas esenciales, relaciones entre conceptos, cinco preguntas de comprobación y tres ejercicios cortos. Añade al final una guía de respuestas para el profesor.`;
+  }
+  return `Genera cinco ejercicios progresivos, desde una aplicación básica hasta una tarea integradora. Para cada ejercicio indica qué se practica y redacta el enunciado. Después incluye una sección separada con solución o guía de solución para el profesor.`;
+}
+
+function teachingSystemPrompt(mode: TeachingMode) {
+  return `Eres un asistente privado de preparación docente para un profesor de Formación Profesional.
+
+REGLAS OBLIGATORIAS:
+- Trabaja exclusivamente con la unidad y los materiales locales suministrados.
+- No introduzcas conceptos, APIs, sintaxis, patrones o contenidos que no estén presentes o claramente presupuestos por esos materiales.
+- Si el material no permite cumplir una parte de la tarea, indícalo en vez de inventar contenido.
+- Los ejercicios deben ser realizables con lo que ya se ha explicado en la unidad.
+- Distingue claramente el material destinado al alumnado de las soluciones o notas destinadas al profesor.
+- Responde en español y con formato claro para poder reutilizar el resultado en clase.
+- No muestres razonamiento interno ni cadenas de pensamiento.
+
+TAREA:
+${teachingInstruction(mode)}`;
+}
+
 async function ollamaRequest(url: string, init: RequestInit, timeoutMs = 120_000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -45,6 +88,18 @@ async function ollamaRequest(url: string, init: RequestInit, timeoutMs = 120_000
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function handleAiError(error: unknown) {
+  const message = error instanceof Error && error.name === "AbortError"
+    ? "La IA ha tardado demasiado en responder"
+    : error instanceof Error ? error.message : "No se pudo generar el contenido";
+
+  if (message.includes("fetch failed") || message.includes("ECONNREFUSED")) {
+    return { status: 503, message: "No se puede conectar con Ollama. Comprueba que está ejecutándose en tu equipo." };
+  }
+  if (message.startsWith("Ollama respondió")) return { status: 502, message };
+  return { status: 500, message };
 }
 
 aiRouter.get("/config", async (_req, res, next) => {
@@ -86,6 +141,93 @@ aiRouter.post("/test", async (req, res) => {
       ? "Ollama no respondió a tiempo"
       : error instanceof Error ? error.message : "No se pudo conectar con Ollama";
     res.status(503).json({ error: message });
+  }
+});
+
+aiRouter.post("/units/:id/generate", async (req, res) => {
+  try {
+    const unitId = Number(req.params.id);
+    const mode = String(req.body?.mode || "EXERCISES").toUpperCase() as TeachingMode;
+    const extraInstruction = typeof req.body?.instruction === "string" ? req.body.instruction.trim().slice(0, 2000) : "";
+
+    if (!Number.isInteger(unitId)) {
+      res.status(400).json({ error: "Identificador de unidad no válido" });
+      return;
+    }
+    if (!TEACHING_MODES.has(mode)) {
+      res.status(400).json({ error: "Tipo de generación docente no válido" });
+      return;
+    }
+
+    const unit = await prisma.unidad.findUnique({
+      where: { id: unitId },
+      include: { asignatura: { select: { nombre: true, grupo: true } } },
+    });
+    if (!unit) {
+      res.status(404).json({ error: "Unidad no encontrada" });
+      return;
+    }
+
+    const config = await readAiConfig();
+    if (!config.enabled) {
+      res.status(409).json({ error: "La IA está desactivada. Actívala primero en la pantalla IA." });
+      return;
+    }
+    validateLocalOllamaUrl(config.baseUrl);
+
+    const materials = await buildUnitMaterialContext(unitId);
+    const unitContext = [
+      `Asignatura: ${unit.asignatura.nombre}${unit.asignatura.grupo ? ` · ${unit.asignatura.grupo}` : ""}`,
+      `Unidad: U${unit.orden} · ${unit.titulo}`,
+      unit.descripcion ? `Descripción de la unidad: ${unit.descripcion}` : "",
+      unit.observaciones ? `Observaciones del profesor: ${unit.observaciones}` : "",
+      unit.horasPrevistas !== null ? `Horas previstas: ${unit.horasPrevistas}` : "",
+    ].filter(Boolean).join("\n");
+
+    if (!materials.text && !unit.descripcion) {
+      res.status(409).json({
+        error: "Esta unidad no tiene todavía material con texto extraído ni descripción suficiente. Añade un material compatible antes de generar recursos.",
+      });
+      return;
+    }
+
+    const response = await ollamaRequest(`${config.baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: config.model,
+        stream: false,
+        messages: [
+          { role: "system", content: teachingSystemPrompt(mode) },
+          {
+            role: "user",
+            content: `${unitContext}\n\n${extraInstruction ? `INSTRUCCIÓN ADICIONAL DEL PROFESOR:\n${extraInstruction}\n\n` : ""}MATERIALES LOCALES DE LA UNIDAD:${materials.text || "\nNo hay texto de archivo disponible; usa únicamente la descripción de la unidad."}`,
+          },
+        ],
+        options: { temperature: 0.25 },
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Ollama respondió con HTTP ${response.status}${body ? `: ${body.slice(0, 300)}` : ""}`);
+    }
+
+    const body = (await response.json()) as { message?: { content?: string }; response?: string };
+    const content = cleanModelOutput(body.message?.content || body.response || "");
+    if (!content) throw new Error("Ollama no devolvió contenido");
+
+    res.json({
+      mode,
+      model: config.model,
+      content,
+      sources: materials.sources,
+      truncated: materials.truncated,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    const handled = handleAiError(error);
+    res.status(handled.status).json({ error: handled.message });
   }
 });
 
@@ -149,15 +291,9 @@ aiRouter.post("/students/:id/analyze", async (req, res, next) => {
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
-    const message = error instanceof Error && error.name === "AbortError"
-      ? "La IA ha tardado demasiado en responder"
-      : error instanceof Error ? error.message : "No se pudo generar el análisis";
-    if (message.includes("fetch failed") || message.includes("ECONNREFUSED")) {
-      res.status(503).json({ error: "No se puede conectar con Ollama. Comprueba que está ejecutándose en tu equipo." });
-      return;
-    }
-    if (message.startsWith("Ollama respondió")) {
-      res.status(502).json({ error: message });
+    const handled = handleAiError(error);
+    if (handled.status !== 500) {
+      res.status(handled.status).json({ error: handled.message });
       return;
     }
     next(error);
