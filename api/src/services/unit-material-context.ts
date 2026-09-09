@@ -15,7 +15,6 @@ const DATA_ROOT = path.join(REPO_ROOT, "local-data");
 const TEXT_ROOT = path.resolve(DATA_ROOT, "material-text");
 const REGISTRY_PATH = path.join(DATA_ROOT, "materials.json");
 const MAX_AI_CONTEXT_CHARS = 70_000;
-const MIN_CHARS_PER_FILE = 4_000;
 
 async function readRegistry(): Promise<StoredMaterialRecord[]> {
   try {
@@ -44,14 +43,6 @@ export async function buildUnitAssociatedFilesContext(unitId: number) {
     ))
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
-  if (materials.length === 0) {
-    return {
-      text: "",
-      sources: [] as Array<{ id: string; name: string; extractedChars: number }>,
-      truncated: false,
-    };
-  }
-
   const loaded = await Promise.all(materials.map(async (material) => {
     if (!material.extractedTextPath) return { material, text: "" };
     const text = await fs.readFile(safeTextPath(material.extractedTextPath), "utf8").catch(() => "");
@@ -67,10 +58,6 @@ export async function buildUnitAssociatedFilesContext(unitId: number) {
     };
   }
 
-  const headerBudget = usable.reduce((sum, item) => sum + item.material.originalName.length + 45, 0);
-  const availableForText = Math.max(0, MAX_AI_CONTEXT_CHARS - headerBudget);
-  const fairShare = Math.max(MIN_CHARS_PER_FILE, Math.floor(availableForText / usable.length));
-
   const chunks: string[] = [];
   const sources: Array<{ id: string; name: string; extractedChars: number }> = [];
   let usedChars = 0;
@@ -79,21 +66,16 @@ export async function buildUnitAssociatedFilesContext(unitId: number) {
   for (let index = 0; index < usable.length; index += 1) {
     const { material, text } = usable[index];
     const header = `\n\n===== ARCHIVO ASOCIADO ${index + 1}/${usable.length}: ${material.originalName} =====\n`;
+    const remainingFiles = usable.length - index;
     const remainingGlobal = MAX_AI_CONTEXT_CHARS - usedChars - header.length;
+
     if (remainingGlobal <= 0) {
       truncated = true;
       break;
     }
 
-    const remainingFiles = usable.length - index;
-    const reservedForOthers = Math.max(0, (remainingFiles - 1) * Math.min(MIN_CHARS_PER_FILE, fairShare));
-    const currentLimit = Math.max(0, Math.min(fairShare, remainingGlobal - reservedForOthers));
+    const currentLimit = Math.max(1, Math.floor(remainingGlobal / remainingFiles));
     const slice = text.slice(0, currentLimit);
-
-    if (!slice) {
-      truncated = true;
-      continue;
-    }
 
     if (slice.length < text.length) truncated = true;
     chunks.push(`${header}${slice}`);
