@@ -3,6 +3,31 @@ import { prisma } from "../lib/prisma";
 
 export const subjectsRouter = Router();
 
+function positiveInteger(value: unknown) {
+  const numeric = Number(value);
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+}
+
+function nullableText(value: unknown) {
+  if (typeof value !== "string") return null;
+  return value.trim() || null;
+}
+
+async function resolveGroup(courseId: number, groupIdValue: unknown) {
+  if (groupIdValue === null || groupIdValue === undefined || groupIdValue === "") {
+    return { id: null as number | null, name: "" };
+  }
+
+  const groupId = positiveInteger(groupIdValue);
+  if (!groupId) return null;
+
+  const group = await prisma.grupo.findFirst({
+    where: { id: groupId, cursoAcademicoId: courseId },
+    select: { id: true, nombre: true },
+  });
+  return group ? { id: group.id, name: group.nombre } : null;
+}
+
 subjectsRouter.get("/", async (req, res, next) => {
   try {
     const courseId = req.query.courseId ? Number(req.query.courseId) : undefined;
@@ -11,7 +36,15 @@ subjectsRouter.get("/", async (req, res, next) => {
       orderBy: [{ activa: "desc" }, { nombre: "asc" }],
       include: {
         cursoAcademico: true,
-        _count: { select: { matriculas: { where: { activa: true, alumno: { activo: true } } }, sesiones: true, unidades: true, actividades: true } },
+        grupoAsignado: true,
+        _count: {
+          select: {
+            matriculas: { where: { activa: true, alumno: { activo: true } } },
+            sesiones: true,
+            unidades: true,
+            actividades: true,
+          },
+        },
       },
     });
     res.json(subjects);
@@ -22,34 +55,58 @@ subjectsRouter.get("/", async (req, res, next) => {
 
 subjectsRouter.post("/", async (req, res, next) => {
   try {
-    const { cursoAcademicoId, nombre, codigo, grupo } = req.body;
-    if (!cursoAcademicoId || !nombre || !String(nombre).trim()) {
-      res.status(400).json({ error: "cursoAcademicoId y nombre son obligatorios" });
+    const courseId = positiveInteger(req.body?.cursoAcademicoId);
+    const cleanName = typeof req.body?.nombre === "string" ? req.body.nombre.trim() : "";
+
+    if (!courseId || !cleanName) {
+      res.status(400).json({ error: "Debes seleccionar un curso académico e indicar el nombre de la asignatura" });
       return;
     }
 
-    const courseId = Number(cursoAcademicoId);
-    const cleanName = String(nombre).trim();
-    const cleanGroup = typeof grupo === "string" ? grupo.trim() : "";
+    const course = await prisma.cursoAcademico.findUnique({ where: { id: courseId } });
+    if (!course) {
+      res.status(404).json({ error: "Curso académico no encontrado" });
+      return;
+    }
+
+    const resolvedGroup = await resolveGroup(courseId, req.body?.grupoId);
+    if (!resolvedGroup) {
+      res.status(400).json({ error: "El grupo seleccionado no pertenece al curso académico" });
+      return;
+    }
 
     const duplicate = await prisma.asignatura.findFirst({
-      where: { cursoAcademicoId: courseId, nombre: cleanName, grupo: cleanGroup },
+      where: {
+        cursoAcademicoId: courseId,
+        nombre: cleanName,
+        grupo: resolvedGroup.name,
+      },
     });
     if (duplicate) {
-      res.status(409).json({ error: "Ya existe una asignatura con ese nombre y grupo en el curso" });
+      res.status(409).json({ error: "Ya existe esa asignatura en el mismo curso y grupo" });
       return;
     }
 
     const subject = await prisma.asignatura.create({
       data: {
         cursoAcademicoId: courseId,
+        grupoId: resolvedGroup.id,
+        grupo: resolvedGroup.name,
         nombre: cleanName,
-        codigo: codigo ? String(codigo).trim() || null : null,
-        grupo: cleanGroup,
+        codigo: nullableText(req.body?.codigo),
+        activa: typeof req.body?.activa === "boolean" ? req.body.activa : true,
       },
       include: {
         cursoAcademico: true,
-        _count: { select: { matriculas: { where: { activa: true, alumno: { activo: true } } }, sesiones: true, unidades: true, actividades: true } },
+        grupoAsignado: true,
+        _count: {
+          select: {
+            matriculas: { where: { activa: true, alumno: { activo: true } } },
+            sesiones: true,
+            unidades: true,
+            actividades: true,
+          },
+        },
       },
     });
     res.status(201).json(subject);
@@ -60,51 +117,82 @@ subjectsRouter.post("/", async (req, res, next) => {
 
 subjectsRouter.put("/:id", async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) {
+    const id = positiveInteger(req.params.id);
+    if (!id) {
       res.status(400).json({ error: "Identificador de asignatura no válido" });
       return;
     }
 
-    const existing = await prisma.asignatura.findUnique({ where: { id } });
+    const existing = await prisma.asignatura.findUnique({
+      where: { id },
+      include: { _count: { select: { matriculas: true, sesiones: true, actividades: true } } },
+    });
     if (!existing) {
       res.status(404).json({ error: "Asignatura no encontrada" });
       return;
     }
 
-    const { nombre, codigo, grupo, activa } = req.body;
-    if (!nombre || !String(nombre).trim()) {
+    const courseId = positiveInteger(req.body?.cursoAcademicoId) ?? existing.cursoAcademicoId;
+    const cleanName = typeof req.body?.nombre === "string" ? req.body.nombre.trim() : "";
+    if (!cleanName) {
       res.status(400).json({ error: "El nombre es obligatorio" });
       return;
     }
 
-    const cleanName = String(nombre).trim();
-    const cleanGroup = typeof grupo === "string" ? grupo.trim() : "";
+    if (
+      courseId !== existing.cursoAcademicoId &&
+      (existing._count.matriculas > 0 || existing._count.sesiones > 0 || existing._count.actividades > 0)
+    ) {
+      res.status(409).json({ error: "No puedes cambiar de curso una asignatura que ya tiene alumnos, sesiones o actividades" });
+      return;
+    }
+
+    const course = await prisma.cursoAcademico.findUnique({ where: { id: courseId } });
+    if (!course) {
+      res.status(404).json({ error: "Curso académico no encontrado" });
+      return;
+    }
+
+    const resolvedGroup = await resolveGroup(courseId, req.body?.grupoId);
+    if (!resolvedGroup) {
+      res.status(400).json({ error: "El grupo seleccionado no pertenece al curso académico" });
+      return;
+    }
 
     const duplicate = await prisma.asignatura.findFirst({
       where: {
-        cursoAcademicoId: existing.cursoAcademicoId,
+        cursoAcademicoId: courseId,
         nombre: cleanName,
-        grupo: cleanGroup,
+        grupo: resolvedGroup.name,
         NOT: { id },
       },
     });
     if (duplicate) {
-      res.status(409).json({ error: "Ya existe una asignatura con ese nombre y grupo en el curso" });
+      res.status(409).json({ error: "Ya existe esa asignatura en el mismo curso y grupo" });
       return;
     }
 
     const subject = await prisma.asignatura.update({
       where: { id },
       data: {
+        cursoAcademicoId: courseId,
+        grupoId: resolvedGroup.id,
+        grupo: resolvedGroup.name,
         nombre: cleanName,
-        codigo: codigo ? String(codigo).trim() || null : null,
-        grupo: cleanGroup,
-        activa: typeof activa === "boolean" ? activa : existing.activa,
+        codigo: nullableText(req.body?.codigo),
+        activa: typeof req.body?.activa === "boolean" ? req.body.activa : existing.activa,
       },
       include: {
         cursoAcademico: true,
-        _count: { select: { matriculas: { where: { activa: true, alumno: { activo: true } } }, sesiones: true, unidades: true, actividades: true } },
+        grupoAsignado: true,
+        _count: {
+          select: {
+            matriculas: { where: { activa: true, alumno: { activo: true } } },
+            sesiones: true,
+            unidades: true,
+            actividades: true,
+          },
+        },
       },
     });
 
@@ -116,8 +204,8 @@ subjectsRouter.put("/:id", async (req, res, next) => {
 
 subjectsRouter.get("/:id/units", async (req, res, next) => {
   try {
-    const subjectId = Number(req.params.id);
-    if (!Number.isInteger(subjectId)) {
+    const subjectId = positiveInteger(req.params.id);
+    if (!subjectId) {
       res.status(400).json({ error: "Identificador de asignatura no válido" });
       return;
     }
@@ -142,22 +230,18 @@ subjectsRouter.get("/:id/units", async (req, res, next) => {
 
 subjectsRouter.post("/:id/units", async (req, res, next) => {
   try {
-    const subjectId = Number(req.params.id);
-    if (!Number.isInteger(subjectId)) {
-      res.status(400).json({ error: "Identificador de asignatura no válido" });
+    const subjectId = positiveInteger(req.params.id);
+    const numericOrder = positiveInteger(req.body?.orden);
+    const title = typeof req.body?.titulo === "string" ? req.body.titulo.trim() : "";
+
+    if (!subjectId || !numericOrder || !title) {
+      res.status(400).json({ error: "El orden debe ser un entero mayor que 0 y el título es obligatorio" });
       return;
     }
 
     const subject = await prisma.asignatura.findUnique({ where: { id: subjectId } });
     if (!subject) {
       res.status(404).json({ error: "Asignatura no encontrada" });
-      return;
-    }
-
-    const { orden, titulo, descripcion, activa = true } = req.body;
-    const numericOrder = Number(orden);
-    if (!Number.isInteger(numericOrder) || numericOrder < 1 || !titulo || !String(titulo).trim()) {
-      res.status(400).json({ error: "El orden debe ser un entero mayor que 0 y el título es obligatorio" });
       return;
     }
 
@@ -173,9 +257,9 @@ subjectsRouter.post("/:id/units", async (req, res, next) => {
       data: {
         asignaturaId: subjectId,
         orden: numericOrder,
-        titulo: String(titulo).trim(),
-        descripcion: descripcion ? String(descripcion).trim() || null : null,
-        activa: Boolean(activa),
+        titulo: title,
+        descripcion: nullableText(req.body?.descripcion),
+        activa: typeof req.body?.activa === "boolean" ? req.body.activa : true,
       },
       include: { _count: { select: { sesiones: true, actividades: true } } },
     });
@@ -188,23 +272,19 @@ subjectsRouter.post("/:id/units", async (req, res, next) => {
 
 subjectsRouter.put("/:subjectId/units/:unitId", async (req, res, next) => {
   try {
-    const subjectId = Number(req.params.subjectId);
-    const unitId = Number(req.params.unitId);
-    if (!Number.isInteger(subjectId) || !Number.isInteger(unitId)) {
-      res.status(400).json({ error: "Identificador no válido" });
+    const subjectId = positiveInteger(req.params.subjectId);
+    const unitId = positiveInteger(req.params.unitId);
+    const numericOrder = positiveInteger(req.body?.orden);
+    const title = typeof req.body?.titulo === "string" ? req.body.titulo.trim() : "";
+
+    if (!subjectId || !unitId || !numericOrder || !title) {
+      res.status(400).json({ error: "Identificador, orden y título no válidos" });
       return;
     }
 
     const existing = await prisma.unidad.findFirst({ where: { id: unitId, asignaturaId: subjectId } });
     if (!existing) {
       res.status(404).json({ error: "Unidad no encontrada" });
-      return;
-    }
-
-    const { orden, titulo, descripcion, activa } = req.body;
-    const numericOrder = Number(orden);
-    if (!Number.isInteger(numericOrder) || numericOrder < 1 || !titulo || !String(titulo).trim()) {
-      res.status(400).json({ error: "El orden debe ser un entero mayor que 0 y el título es obligatorio" });
       return;
     }
 
@@ -220,9 +300,9 @@ subjectsRouter.put("/:subjectId/units/:unitId", async (req, res, next) => {
       where: { id: unitId },
       data: {
         orden: numericOrder,
-        titulo: String(titulo).trim(),
-        descripcion: descripcion ? String(descripcion).trim() || null : null,
-        activa: typeof activa === "boolean" ? activa : existing.activa,
+        titulo: title,
+        descripcion: nullableText(req.body?.descripcion),
+        activa: typeof req.body?.activa === "boolean" ? req.body.activa : existing.activa,
       },
       include: { _count: { select: { sesiones: true, actividades: true } } },
     });
