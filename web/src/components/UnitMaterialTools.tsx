@@ -13,7 +13,7 @@ type MaterialItem = {
   createdAt: string;
 };
 
-type TeachingMode = "EXERCISES" | "SOLVED_EXERCISE" | "PRACTICE" | "EXPLANATION" | "REVIEW";
+type TeachingMode = "CUSTOM" | "EXERCISES" | "SOLVED_EXERCISE" | "PRACTICE" | "EXPLANATION" | "REVIEW";
 
 type AiResult = {
   mode: TeachingMode;
@@ -32,7 +32,7 @@ type Props = {
   };
 };
 
-const AI_ACTIONS: Array<{ mode: TeachingMode; label: string }> = [
+const AI_ACTIONS: Array<{ mode: Exclude<TeachingMode, "CUSTOM">; label: string }> = [
   { mode: "EXERCISES", label: "Generar ejercicios" },
   { mode: "SOLVED_EXERCISE", label: "Ejercicio resuelto" },
   { mode: "PRACTICE", label: "Crear práctica" },
@@ -121,7 +121,7 @@ export function UnitMaterialTools({ unit }: Props) {
       }
       if (inputRef.current) inputRef.current.value = "";
       await loadMaterials();
-      setMessage(files.length === 1 ? "Material añadido correctamente." : `${files.length} materiales añadidos correctamente.`);
+      setMessage(files.length === 1 ? "Material asociado correctamente." : `${files.length} materiales asociados correctamente.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron añadir los materiales");
     } finally {
@@ -147,6 +147,11 @@ export function UnitMaterialTools({ unit }: Props) {
   }
 
   async function generate(mode: TeachingMode) {
+    if (mode === "CUSTOM" && !instruction.trim()) {
+      setError("Escribe qué quieres pedir a la IA sobre esta unidad.");
+      return;
+    }
+
     setAiLoading(mode);
     setAiResult(null);
     setError("");
@@ -159,11 +164,11 @@ export function UnitMaterialTools({ unit }: Props) {
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        throw new Error(body.error ?? "No se pudo generar el recurso docente");
+        throw new Error(body.error ?? "No se pudo generar la respuesta");
       }
       setAiResult(await response.json());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo generar el recurso docente");
+      setError(err instanceof Error ? err.message : "No se pudo generar la respuesta");
     } finally {
       setAiLoading(null);
     }
@@ -179,6 +184,8 @@ export function UnitMaterialTools({ unit }: Props) {
     }
   }
 
+  const readyMaterials = materials.filter((material) => material.extractionStatus === "READY");
+
   return (
     <div className="unit-material-tools">
       <button className="unit-tools-toggle" type="button" onClick={() => setOpen((value) => !value)}>
@@ -191,11 +198,11 @@ export function UnitMaterialTools({ unit }: Props) {
           <section className="unit-tools-section">
             <div className="unit-tools-heading">
               <div>
-                <strong>Material docente local</strong>
-                <small>Se guarda únicamente en este ordenador y nunca en GitHub.</small>
+                <strong>Archivos asociados a esta unidad</strong>
+                <small>Puede haber uno o varios. Se guardan únicamente en este ordenador y nunca en GitHub.</small>
               </div>
               <label className={uploading ? "secondary compact-button disabled" : "secondary compact-button upload-label"}>
-                {uploading ? "Añadiendo…" : "+ Añadir material"}
+                {uploading ? "Añadiendo…" : "+ Asociar archivos"}
                 <input
                   ref={inputRef}
                   type="file"
@@ -212,63 +219,86 @@ export function UnitMaterialTools({ unit }: Props) {
             ) : materials.length === 0 ? (
               <div className="unit-material-empty">Todavía no hay archivos asociados a esta unidad.</div>
             ) : (
-              <div className="unit-material-list">
-                {materials.map((material) => (
-                  <article className="unit-material-row" key={material.id}>
-                    <div>
-                      <strong>{material.originalName}</strong>
-                      <small>{formatBytes(material.sizeBytes)} · {extractionLabel(material)}</small>
-                      {material.extractionMessage && <small className="material-warning">{material.extractionMessage}</small>}
-                    </div>
-                    <div className="row-actions">
-                      <a className="secondary compact-button material-link" href={`/api/materials/${material.id}/file`} target="_blank" rel="noreferrer">Abrir</a>
-                      <button className="text-button content-delete" type="button" onClick={() => void deleteMaterial(material)}>Eliminar</button>
-                    </div>
-                  </article>
-                ))}
-              </div>
+              <>
+                <p className="muted">
+                  {materials.length} archivo{materials.length === 1 ? "" : "s"} asociado{materials.length === 1 ? "" : "s"} · {readyMaterials.length} preparado{readyMaterials.length === 1 ? "" : "s"} para IA
+                </p>
+                <div className="unit-material-list">
+                  {materials.map((material) => (
+                    <article className="unit-material-row" key={material.id}>
+                      <div>
+                        <strong>{material.originalName}</strong>
+                        <small>{formatBytes(material.sizeBytes)} · {extractionLabel(material)}</small>
+                        {material.extractionMessage && <small className="material-warning">{material.extractionMessage}</small>}
+                      </div>
+                      <div className="row-actions">
+                        <a className="secondary compact-button material-link" href={`/api/materials/${material.id}/file`} target="_blank" rel="noreferrer">Abrir</a>
+                        <button className="text-button content-delete" type="button" onClick={() => void deleteMaterial(material)}>Eliminar</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </>
             )}
           </section>
 
           <section className="unit-tools-section unit-ai-section">
             <div className="unit-tools-heading">
               <div>
-                <strong>Herramientas docentes con Ollama</strong>
-                <small>La IA utiliza la descripción de la unidad y el texto extraído de los materiales locales.</small>
+                <strong>Preguntar a la IA sobre esta unidad</strong>
+                <small>Ollama utilizará automáticamente todos los archivos de esta unidad que estén preparados para IA.</small>
               </div>
             </div>
 
             <label className="unit-ai-instruction">
-              Instrucción adicional (opcional)
+              ¿Qué quieres hacer con esta unidad?
               <textarea
-                rows={2}
+                rows={4}
                 value={instruction}
                 onChange={(event) => setInstruction(event.target.value)}
-                placeholder="Ej. Nivel inicial, sin usar arrays todavía; prepara la práctica para 45 minutos…"
+                placeholder="Ej. Genera 4 ejercicios únicamente sobre arrays bidimensionales; prepara una explicación de XPath; crea una práctica de 45 minutos sobre esta temática…"
               />
             </label>
 
             <div className="unit-ai-actions">
-              {AI_ACTIONS.map((action) => (
-                <button
-                  className={action.mode === "EXERCISES" ? "primary compact-button" : "secondary compact-button"}
-                  key={action.mode}
-                  type="button"
-                  disabled={aiLoading !== null}
-                  onClick={() => void generate(action.mode)}
-                >
-                  {aiLoading === action.mode ? "Generando…" : action.label}
-                </button>
-              ))}
+              <button
+                className="primary compact-button"
+                type="button"
+                disabled={aiLoading !== null || !instruction.trim() || readyMaterials.length === 0}
+                onClick={() => void generate("CUSTOM")}
+              >
+                {aiLoading === "CUSTOM" ? "Consultando…" : "Preguntar a la IA"}
+              </button>
             </div>
+
+            <div className="unit-ai-presets">
+              <small className="muted">Accesos rápidos opcionales</small>
+              <div className="unit-ai-actions">
+                {AI_ACTIONS.map((action) => (
+                  <button
+                    className="secondary compact-button"
+                    key={action.mode}
+                    type="button"
+                    disabled={aiLoading !== null || readyMaterials.length === 0}
+                    onClick={() => void generate(action.mode)}
+                  >
+                    {aiLoading === action.mode ? "Generando…" : action.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {readyMaterials.length === 0 && materials.length > 0 && (
+              <p className="material-warning">Ningún archivo de esta unidad está preparado todavía para IA.</p>
+            )}
 
             {aiResult && (
               <article className="unit-ai-result">
                 <div className="unit-ai-result-heading">
                   <div>
-                    <strong>Resultado generado</strong>
+                    <strong>Respuesta de la IA</strong>
                     <small>
-                      Modelo: {aiResult.model} · {aiResult.sources.length} material{aiResult.sources.length === 1 ? "" : "es"} utilizado{aiResult.sources.length === 1 ? "" : "s"}
+                      Modelo: {aiResult.model} · {aiResult.sources.length} archivo{aiResult.sources.length === 1 ? "" : "s"} utilizado{aiResult.sources.length === 1 ? "" : "s"}
                       {aiResult.truncated ? " · contexto recortado por longitud" : ""}
                     </small>
                   </div>
