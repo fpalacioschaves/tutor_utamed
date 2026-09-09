@@ -1,0 +1,350 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum TipoSesion {
+  CLASE
+  TUTORIA_GRUPAL
+}
+
+enum EstadoSesion {
+  PROGRAMADA
+  REALIZADA
+  CANCELADA
+}
+
+enum OrigenSesion {
+  MANUAL
+  IMPORTADA
+}
+
+enum EstadoAsistencia {
+  PRESENTE
+  AUSENTE
+  RETRASO
+  SALIDA_ANTICIPADA
+  AUSENCIA_JUSTIFICADA
+}
+
+enum EstadoEntrega {
+  PENDIENTE
+  ENTREGADA
+  CORREGIDA
+  NO_ENTREGADA
+  RETRASADA
+}
+
+enum EstadoTutoria {
+  SOLICITADA
+  PROGRAMADA
+  REALIZADA
+  CANCELADA
+  NO_PRESENTADO
+}
+
+enum EstadoSeguimiento {
+  PENDIENTE
+  REALIZADO
+  CANCELADO
+}
+
+enum EstadoIncidencia {
+  ABIERTA
+  EN_SEGUIMIENTO
+  RESUELTA
+}
+
+model Admin {
+  id           Int       @id @default(autoincrement())
+  usuario      String    @unique
+  passwordHash String    @map("password_hash")
+  nombre       String
+  ultimoAcceso DateTime? @map("ultimo_acceso")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("admin")
+}
+
+model CursoAcademico {
+  id          Int          @id @default(autoincrement())
+  nombre      String       @unique
+  fechaInicio DateTime     @map("fecha_inicio")
+  fechaFin    DateTime     @map("fecha_fin")
+  activo      Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  asignaturas Asignatura[]
+
+  @@map("cursos_academicos")
+}
+
+model Alumno {
+  id                   Int                  @id @default(autoincrement())
+  nombre               String
+  apellidos            String
+  email                String?              @unique
+  identificadorExterno String?              @map("identificador_externo")
+  activo               Boolean              @default(true)
+  notasGenerales       String?              @map("notas_generales")
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @updatedAt @map("updated_at")
+  matriculas           Matricula[]
+  registrosSesion      RegistroSesion[]
+  entregas             Entrega[]
+  tutoriasIndividuales TutoriaIndividual[]
+  seguimientos         Seguimiento[]
+  incidencias          Incidencia[]
+  comunicaciones       Comunicacion[]
+
+  @@index([apellidos, nombre])
+  @@map("alumnos")
+}
+
+model Asignatura {
+  id               Int                @id @default(autoincrement())
+  cursoAcademicoId Int                @map("curso_academico_id")
+  nombre           String
+  codigo           String?
+  grupo            String             @default("")
+  activa           Boolean            @default(true)
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  cursoAcademico   CursoAcademico     @relation(fields: [cursoAcademicoId], references: [id])
+  matriculas       Matricula[]
+  unidades         Unidad[]
+  sesiones         Sesion[]
+  actividades      Actividad[]
+  tutorias         TutoriaIndividual[]
+  seguimientos     Seguimiento[]
+  incidencias      Incidencia[]
+  comunicaciones   Comunicacion[]
+
+  @@index([cursoAcademicoId])
+  @@unique([cursoAcademicoId, nombre, grupo])
+  @@map("asignaturas")
+}
+
+model Matricula {
+  id           Int        @id @default(autoincrement())
+  alumnoId     Int        @map("alumno_id")
+  asignaturaId Int        @map("asignatura_id")
+  fechaAlta    DateTime   @default(now()) @map("fecha_alta")
+  fechaBaja    DateTime?  @map("fecha_baja")
+  activa       Boolean    @default(true)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  alumno       Alumno     @relation(fields: [alumnoId], references: [id])
+  asignatura   Asignatura @relation(fields: [asignaturaId], references: [id])
+
+  @@unique([alumnoId, asignaturaId])
+  @@index([asignaturaId])
+  @@map("matriculas")
+}
+
+model Unidad {
+  id           Int         @id @default(autoincrement())
+  asignaturaId Int         @map("asignatura_id")
+  orden        Int
+  titulo       String
+  descripcion  String?
+  activa       Boolean     @default(true)
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  asignatura   Asignatura  @relation(fields: [asignaturaId], references: [id])
+  sesiones     Sesion[]
+  actividades  Actividad[]
+
+  @@unique([asignaturaId, orden])
+  @@map("unidades")
+}
+
+model Sesion {
+  id                     Int               @id @default(autoincrement())
+  asignaturaId           Int               @map("asignatura_id")
+  unidadId               Int?              @map("unidad_id")
+  tipo                   TipoSesion
+  titulo                 String?
+  tema                   String?
+  inicio                 DateTime
+  fin                    DateTime
+  estado                 EstadoSesion      @default(PROGRAMADA)
+  origen                 OrigenSesion      @default(MANUAL)
+  referenciaExterna      String?           @map("referencia_externa")
+  observacionesGenerales String?           @map("observaciones_generales")
+  createdAt              DateTime          @default(now()) @map("created_at")
+  updatedAt              DateTime          @updatedAt @map("updated_at")
+  asignatura             Asignatura        @relation(fields: [asignaturaId], references: [id])
+  unidad                 Unidad?           @relation(fields: [unidadId], references: [id])
+  registros              RegistroSesion[]
+  seguimientos           Seguimiento[]
+  incidencias            Incidencia[]
+
+  @@index([asignaturaId, inicio])
+  @@index([inicio])
+  @@map("sesiones")
+}
+
+model RegistroSesion {
+  id               Int               @id @default(autoincrement())
+  sesionId         Int               @map("sesion_id")
+  alumnoId         Int               @map("alumno_id")
+  estadoAsistencia EstadoAsistencia? @map("estado_asistencia")
+  horaEntrada      DateTime?         @map("hora_entrada")
+  horaSalida       DateTime?         @map("hora_salida")
+  observacion      String?
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  sesion           Sesion            @relation(fields: [sesionId], references: [id])
+  alumno           Alumno            @relation(fields: [alumnoId], references: [id])
+
+  @@unique([sesionId, alumnoId])
+  @@index([alumnoId])
+  @@map("registros_sesion")
+}
+
+model Actividad {
+  id               Int            @id @default(autoincrement())
+  asignaturaId     Int            @map("asignatura_id")
+  unidadId         Int?           @map("unidad_id")
+  titulo           String
+  descripcion      String?
+  fechaPublicacion DateTime?      @map("fecha_publicacion")
+  fechaLimite      DateTime?      @map("fecha_limite")
+  activa           Boolean        @default(true)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  asignatura       Asignatura     @relation(fields: [asignaturaId], references: [id])
+  unidad           Unidad?        @relation(fields: [unidadId], references: [id])
+  entregas         Entrega[]
+  seguimientos     Seguimiento[]
+
+  @@index([asignaturaId])
+  @@map("actividades")
+}
+
+model Entrega {
+  id           Int           @id @default(autoincrement())
+  actividadId  Int           @map("actividad_id")
+  alumnoId     Int           @map("alumno_id")
+  estado       EstadoEntrega @default(PENDIENTE)
+  fechaEntrega DateTime?     @map("fecha_entrega")
+  calificacion Float?
+  observacion  String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  actividad    Actividad     @relation(fields: [actividadId], references: [id])
+  alumno       Alumno        @relation(fields: [alumnoId], references: [id])
+
+  @@unique([actividadId, alumnoId])
+  @@index([alumnoId])
+  @@map("entregas")
+}
+
+model TutoriaIndividual {
+  id             Int           @id @default(autoincrement())
+  alumnoId       Int           @map("alumno_id")
+  asignaturaId   Int?          @map("asignatura_id")
+  fechaSolicitud DateTime      @default(now()) @map("fecha_solicitud")
+  inicio         DateTime?
+  fin            DateTime?
+  estado         EstadoTutoria @default(SOLICITADA)
+  motivo         String?
+  observaciones  String?
+  acuerdos       String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  alumno         Alumno        @relation(fields: [alumnoId], references: [id])
+  asignatura     Asignatura?   @relation(fields: [asignaturaId], references: [id])
+  seguimientos   Seguimiento[]
+
+  @@index([alumnoId])
+  @@index([inicio])
+  @@map("tutorias_individuales")
+}
+
+model Incidencia {
+  id              Int              @id @default(autoincrement())
+  alumnoId        Int              @map("alumno_id")
+  asignaturaId    Int?             @map("asignatura_id")
+  sesionId        Int?             @map("sesion_id")
+  fecha           DateTime         @default(now())
+  titulo          String
+  descripcion     String
+  estado          EstadoIncidencia @default(ABIERTA)
+  resolucion      String?
+  fechaResolucion DateTime?        @map("fecha_resolucion")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  alumno          Alumno           @relation(fields: [alumnoId], references: [id])
+  asignatura      Asignatura?      @relation(fields: [asignaturaId], references: [id])
+  sesion          Sesion?          @relation(fields: [sesionId], references: [id])
+  seguimientos    Seguimiento[]
+
+  @@index([alumnoId])
+  @@map("incidencias")
+}
+
+model Seguimiento {
+  id                  Int               @id @default(autoincrement())
+  alumnoId            Int               @map("alumno_id")
+  asignaturaId        Int?              @map("asignatura_id")
+  sesionId            Int?              @map("sesion_id")
+  tutoriaIndividualId Int?              @map("tutoria_individual_id")
+  actividadId         Int?              @map("actividad_id")
+  incidenciaId        Int?              @map("incidencia_id")
+  descripcion         String
+  fechaObjetivo       DateTime          @map("fecha_objetivo")
+  estado              EstadoSeguimiento @default(PENDIENTE)
+  fechaCompletado     DateTime?         @map("fecha_completado")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+  alumno              Alumno            @relation(fields: [alumnoId], references: [id])
+  asignatura          Asignatura?       @relation(fields: [asignaturaId], references: [id])
+  sesion              Sesion?           @relation(fields: [sesionId], references: [id])
+  tutoriaIndividual   TutoriaIndividual? @relation(fields: [tutoriaIndividualId], references: [id])
+  actividad           Actividad?        @relation(fields: [actividadId], references: [id])
+  incidencia          Incidencia?       @relation(fields: [incidenciaId], references: [id])
+
+  @@index([alumnoId, fechaObjetivo])
+  @@index([estado, fechaObjetivo])
+  @@map("seguimientos")
+}
+
+model Comunicacion {
+  id           Int         @id @default(autoincrement())
+  alumnoId     Int         @map("alumno_id")
+  asignaturaId Int?        @map("asignatura_id")
+  fecha        DateTime    @default(now())
+  canal        String
+  motivo       String?
+  resumen      String?
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  alumno       Alumno      @relation(fields: [alumnoId], references: [id])
+  asignatura   Asignatura? @relation(fields: [asignaturaId], references: [id])
+
+  @@index([alumnoId, fecha])
+  @@map("comunicaciones")
+}
+
+model ConfiguracionAlertas {
+  id                            Int      @id
+  ausenciasConsecutivasActiva   Boolean  @default(true)  @map("ausencias_consecutivas_activa")
+  ausenciasConsecutivasUmbral   Int      @default(2)     @map("ausencias_consecutivas_umbral")
+  actividadesPendientesActiva   Boolean  @default(true)  @map("actividades_pendientes_activa")
+  actividadesPendientesUmbral   Int      @default(3)     @map("actividades_pendientes_umbral")
+  seguimientosVencidosActiva    Boolean  @default(true)  @map("seguimientos_vencidos_activa")
+  tutoriasSinProgramarActiva    Boolean  @default(true)  @map("tutorias_sin_programar_activa")
+  tutoriasSinProgramarDias      Int      @default(5)     @map("tutorias_sin_programar_dias")
+  incidenciasAbiertasActiva     Boolean  @default(true)  @map("incidencias_abiertas_activa")
+  incidenciasAbiertasDias       Int      @default(10)    @map("incidencias_abiertas_dias")
+  updatedAt                     DateTime @updatedAt      @map("updated_at")
+
+  @@map("configuracion_alertas")
+}
