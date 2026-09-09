@@ -11,13 +11,14 @@ import { FollowUpsPage } from "./pages/FollowUpsPage";
 import { IncidentsPage } from "./pages/IncidentsPage";
 import { CommunicationsPage } from "./pages/CommunicationsPage";
 import { SubjectsPage } from "./pages/SubjectsPage";
+import { ContentsPage } from "./pages/ContentsPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { AlertsPage } from "./pages/AlertsPage";
 import { AISettingsPage } from "./pages/AISettingsPage";
 
-type View = "dashboard" | "sessions" | "students" | "subjects" | "activities" | "tutorials" | "followups" | "incidents" | "communications" | "alerts" | "ai" | "reports" | "placeholder";
+type View = "dashboard" | "sessions" | "students" | "subjects" | "contents" | "activities" | "tutorials" | "followups" | "incidents" | "communications" | "alerts" | "ai" | "reports" | "placeholder";
 
-const NAV_ITEMS = ["Dashboard", "Sesiones", "Alumnos", "Asignaturas", "Actividades", "Tutorías", "Seguimientos", "Incidencias", "Comunicaciones", "Alertas", "IA", "Informes"];
+const NAV_ITEMS = ["Dashboard", "Sesiones", "Alumnos", "Asignaturas", "Contenidos", "Actividades", "Tutorías", "Seguimientos", "Incidencias", "Comunicaciones", "Alertas", "IA", "Informes"];
 
 function App() {
   const [view, setView] = useState<View>("dashboard");
@@ -48,6 +49,7 @@ function App() {
     else if (label === "Sesiones") setView("sessions");
     else if (label === "Alumnos") setView("students");
     else if (label === "Asignaturas") setView("subjects");
+    else if (label === "Contenidos") setView("contents");
     else if (label === "Actividades") setView("activities");
     else if (label === "Tutorías") setView("tutorials");
     else if (label === "Seguimientos") setView("followups");
@@ -74,7 +76,6 @@ function App() {
     setView("students");
     setActiveLabel("Alumnos");
   }
-
 
   function openActivity(id: number) {
     setSessionId(null);
@@ -129,6 +130,8 @@ function App() {
           <StudentsPage onOpenStudent={openStudent} />
         ) : view === "subjects" ? (
           <SubjectsPage />
+        ) : view === "contents" ? (
+          <ContentsPage />
         ) : view === "activities" ? (
           <ActivitiesPage onOpenActivity={openActivity} />
         ) : view === "tutorials" ? (

@@ -59,6 +59,12 @@ enum EstadoIncidencia {
   RESUELTA
 }
 
+enum EstadoUnidad {
+  PENDIENTE
+  EN_CURSO
+  IMPARTIDA
+}
+
 model Admin {
   id           Int       @id @default(autoincrement())
   usuario      String    @unique
@@ -117,6 +123,7 @@ model Asignatura {
   updatedAt        DateTime           @updatedAt @map("updated_at")
   cursoAcademico   CursoAcademico     @relation(fields: [cursoAcademicoId], references: [id])
   matriculas       Matricula[]
+  temas            Tema[]
   unidades         Unidad[]
   sesiones         Sesion[]
   actividades      Actividad[]
@@ -147,20 +154,43 @@ model Matricula {
   @@map("matriculas")
 }
 
-model Unidad {
-  id           Int         @id @default(autoincrement())
-  asignaturaId Int         @map("asignatura_id")
+model Tema {
+  id           Int        @id @default(autoincrement())
+  asignaturaId Int        @map("asignatura_id")
   orden        Int
   titulo       String
   descripcion  String?
-  activa       Boolean     @default(true)
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
-  asignatura   Asignatura  @relation(fields: [asignaturaId], references: [id])
-  sesiones     Sesion[]
-  actividades  Actividad[]
+  activo       Boolean    @default(true)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  asignatura   Asignatura @relation(fields: [asignaturaId], references: [id])
+  unidades     Unidad[]
 
   @@unique([asignaturaId, orden])
+  @@index([asignaturaId])
+  @@map("temas")
+}
+
+model Unidad {
+  id              Int          @id @default(autoincrement())
+  asignaturaId    Int          @map("asignatura_id")
+  temaId          Int?         @map("tema_id")
+  orden           Int
+  titulo          String
+  descripcion     String?
+  estado          EstadoUnidad @default(PENDIENTE)
+  observaciones   String?
+  horasPrevistas  Float?       @map("horas_previstas")
+  activa          Boolean      @default(true)
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  asignatura      Asignatura   @relation(fields: [asignaturaId], references: [id])
+  tema            Tema?        @relation(fields: [temaId], references: [id])
+  sesiones        Sesion[]
+  actividades     Actividad[]
+
+  @@unique([asignaturaId, orden])
+  @@index([temaId])
   @@map("unidades")
 }
 
@@ -291,25 +321,25 @@ model Incidencia {
 }
 
 model Seguimiento {
-  id                  Int               @id @default(autoincrement())
-  alumnoId            Int               @map("alumno_id")
-  asignaturaId        Int?              @map("asignatura_id")
-  sesionId            Int?              @map("sesion_id")
-  tutoriaIndividualId Int?              @map("tutoria_individual_id")
-  actividadId         Int?              @map("actividad_id")
-  incidenciaId        Int?              @map("incidencia_id")
+  id                  Int                @id @default(autoincrement())
+  alumnoId            Int                @map("alumno_id")
+  asignaturaId        Int?               @map("asignatura_id")
+  sesionId            Int?               @map("sesion_id")
+  tutoriaIndividualId Int?               @map("tutoria_individual_id")
+  actividadId         Int?               @map("actividad_id")
+  incidenciaId        Int?               @map("incidencia_id")
   descripcion         String
-  fechaObjetivo       DateTime          @map("fecha_objetivo")
-  estado              EstadoSeguimiento @default(PENDIENTE)
-  fechaCompletado     DateTime?         @map("fecha_completado")
-  createdAt           DateTime          @default(now()) @map("created_at")
-  updatedAt           DateTime          @updatedAt @map("updated_at")
-  alumno              Alumno            @relation(fields: [alumnoId], references: [id])
-  asignatura          Asignatura?       @relation(fields: [asignaturaId], references: [id])
-  sesion              Sesion?           @relation(fields: [sesionId], references: [id])
+  fechaObjetivo       DateTime           @map("fecha_objetivo")
+  estado              EstadoSeguimiento  @default(PENDIENTE)
+  fechaCompletado     DateTime?          @map("fecha_completado")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  alumno              Alumno             @relation(fields: [alumnoId], references: [id])
+  asignatura          Asignatura?        @relation(fields: [asignaturaId], references: [id])
+  sesion              Sesion?            @relation(fields: [sesionId], references: [id])
   tutoriaIndividual   TutoriaIndividual? @relation(fields: [tutoriaIndividualId], references: [id])
-  actividad           Actividad?        @relation(fields: [actividadId], references: [id])
-  incidencia          Incidencia?       @relation(fields: [incidenciaId], references: [id])
+  actividad           Actividad?         @relation(fields: [actividadId], references: [id])
+  incidencia          Incidencia?        @relation(fields: [incidenciaId], references: [id])
 
   @@index([alumnoId, fechaObjetivo])
   @@index([estado, fechaObjetivo])

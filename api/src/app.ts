@@ -2,6 +2,7 @@ import cors from "cors";
 import express, { type ErrorRequestHandler } from "express";
 import { Prisma } from "@prisma/client";
 import { coursesRouter } from "./routes/courses";
+import { contentsRouter } from "./routes/contents";
 import { dashboardRouter } from "./routes/dashboard";
 import { enrollmentsRouter } from "./routes/enrollments";
 import { studentsRouter } from "./routes/students";
@@ -26,6 +27,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/courses", coursesRouter);
+app.use("/api/contents", contentsRouter);
 app.use("/api/subjects", subjectsRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/sessions", sessionsRouter);
