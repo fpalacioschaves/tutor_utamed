@@ -27,13 +27,13 @@ const DATA_ROOT = path.join(REPO_ROOT, "local-data");
 const TEXT_ROOT = path.resolve(DATA_ROOT, "material-text");
 const REGISTRY_PATH = path.join(DATA_ROOT, "materials.json");
 
-// Un contexto demasiado grande hace que Ollama recorte el principio del prompt.
-// 24.000 caracteres suelen caber holgadamente en un contexto de 8K tokens junto
-// con las instrucciones y dejan margen para la respuesta.
-const MAX_AI_CONTEXT_CHARS = 24_000;
-const CHUNK_SIZE = 1_800;
-const CHUNK_OVERLAP = 250;
-const MAX_CHUNKS_PER_FILE = 6;
+// El contexto debe ser suficientemente pequeño para que un Ollama con ventana
+// modesta no recorte la petición del profesor. La selección por relevancia permite
+// trabajar con PDFs grandes sin enviar el documento completo en cada consulta.
+const MAX_AI_CONTEXT_CHARS = 12_000;
+const CHUNK_SIZE = 1_400;
+const CHUNK_OVERLAP = 180;
+const MAX_CHUNKS_PER_FILE = 5;
 
 const STOP_WORDS = new Set([
   "para", "como", "con", "sin", "del", "las", "los", "una", "uno", "unos", "unas", "que", "por", "sobre",
@@ -121,7 +121,6 @@ function scoreChunk(chunk: string, terms: string[], normalizedQuery: string) {
     if (occurrences > 0) score += 4 + Math.min(occurrences, 4) * 2;
   }
 
-  // Prima adicional si aparecen juntos varios términos de la consulta.
   const matchedTerms = terms.filter((term) => normalized.includes(term)).length;
   score += matchedTerms * matchedTerms;
 
@@ -131,6 +130,43 @@ function scoreChunk(chunk: string, terms: string[], normalizedQuery: string) {
   }
 
   return score;
+}
+
+function distributedFallback(ranked: RankedChunk[]) {
+  const byFile = new Map<string, RankedChunk[]>();
+  for (const chunk of ranked) {
+    const items = byFile.get(chunk.material.id) ?? [];
+    items.push(chunk);
+    byFile.set(chunk.material.id, items);
+  }
+
+  const result: RankedChunk[] = [];
+  const added = new Set<string>();
+  const positions = [0, 0.5, 1, 0.25, 0.75];
+
+  for (const items of byFile.values()) {
+    items.sort((a, b) => a.index - b.index);
+    for (const ratio of positions) {
+      const target = Math.round((items.length - 1) * ratio);
+      const chunk = items[target];
+      if (!chunk) continue;
+      const key = `${chunk.material.id}:${chunk.index}`;
+      if (!added.has(key)) {
+        added.add(key);
+        result.push(chunk);
+      }
+    }
+  }
+
+  for (const chunk of ranked) {
+    const key = `${chunk.material.id}:${chunk.index}`;
+    if (!added.has(key)) {
+      added.add(key);
+      result.push(chunk);
+    }
+  }
+
+  return result;
 }
 
 function rankChunks(materials: LoadedMaterial[], query: string) {
@@ -151,12 +187,7 @@ function rankChunks(materials: LoadedMaterial[], query: string) {
   }
 
   if (terms.length === 0 || ranked.every((chunk) => chunk.score === 0)) {
-    // Si la petición es genérica o no hay coincidencias literales, mantenemos una
-    // muestra distribuida del documento en vez de mandar solo el principio.
-    return ranked.sort((a, b) => {
-      if (a.index !== b.index) return a.index - b.index;
-      return a.material.createdAt.localeCompare(b.material.createdAt);
-    });
+    return distributedFallback(ranked);
   }
 
   return ranked.sort((a, b) => b.score - a.score || a.index - b.index);
@@ -186,6 +217,10 @@ export async function buildUnitAssociatedFilesContext(unitId: number, query = ""
     };
   }
 
+  const finalRequest = query.trim()
+    ? `\n\n===== PETICIÓN PRIORITARIA DEL PROFESOR =====\n${query.trim()}\n===== FIN DE LA PETICIÓN =====\n`
+    : "";
+  const contextBudget = Math.max(4_000, MAX_AI_CONTEXT_CHARS - finalRequest.length);
   const ranked = rankChunks(usable, query);
   const selected: RankedChunk[] = [];
   const selectedKeys = new Set<string>();
@@ -199,7 +234,7 @@ export async function buildUnitAssociatedFilesContext(unitId: number, query = ""
     if (fileCount >= MAX_CHUNKS_PER_FILE) return false;
 
     const header = `\n\n===== ${chunk.material.originalName} · fragmento ${chunk.index + 1} =====\n`;
-    if (usedChars + header.length + chunk.text.length > MAX_AI_CONTEXT_CHARS) return false;
+    if (usedChars + header.length + chunk.text.length > contextBudget) return false;
 
     selected.push(chunk);
     selectedKeys.add(key);
@@ -208,7 +243,7 @@ export async function buildUnitAssociatedFilesContext(unitId: number, query = ""
     return true;
   }
 
-  // Garantiza presencia de cada archivo asociado: elegimos primero su mejor fragmento.
+  // Garantiza al menos el fragmento más relevante de cada archivo asociado.
   for (const item of usable) {
     const bestForFile = ranked.find((chunk) => chunk.material.id === item.material.id);
     if (bestForFile) trySelect(bestForFile);
@@ -218,8 +253,7 @@ export async function buildUnitAssociatedFilesContext(unitId: number, query = ""
     trySelect(chunk);
   }
 
-  // Presentamos los fragmentos agrupados por archivo y en orden documental para que
-  // Ollama reciba un contexto coherente, aunque la selección se haya hecho por relevancia.
+  // Una vez seleccionados por relevancia, los presentamos en orden documental.
   selected.sort((a, b) => {
     const fileOrder = a.material.createdAt.localeCompare(b.material.createdAt);
     return fileOrder || a.index - b.index;
@@ -241,7 +275,9 @@ export async function buildUnitAssociatedFilesContext(unitId: number, query = ""
   const totalSelectedChars = selected.reduce((sum, item) => sum + item.text.length, 0);
 
   return {
-    text: chunks.join(""),
+    // La petición se repite al final deliberadamente: así permanece visible incluso
+    // si Ollama tuviera que recortar parte del principio del prompt.
+    text: `${chunks.join("")}${finalRequest}`,
     sources: Array.from(sourcesMap.values()),
     truncated: totalSelectedChars < totalOriginalChars,
   };
