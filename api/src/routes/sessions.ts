@@ -201,6 +201,54 @@ sessionsRouter.put("/:id", async (req, res, next) => {
   }
 });
 
+sessionsRouter.delete("/:id", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Identificador de sesión no válido" });
+      return;
+    }
+
+    const existing = await prisma.sesion.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        _count: {
+          select: {
+            registros: true,
+            seguimientos: true,
+            incidencias: true,
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      res.status(404).json({ error: "Sesión no encontrada" });
+      return;
+    }
+
+    const linked = existing._count;
+    if (linked.registros > 0 || linked.seguimientos > 0 || linked.incidencias > 0) {
+      const reasons = [
+        linked.registros > 0 ? `${linked.registros} registro${linked.registros === 1 ? "" : "s"} de asistencia/observaciones` : null,
+        linked.seguimientos > 0 ? `${linked.seguimientos} seguimiento${linked.seguimientos === 1 ? "" : "s"}` : null,
+        linked.incidencias > 0 ? `${linked.incidencias} incidencia${linked.incidencias === 1 ? "" : "s"}` : null,
+      ].filter(Boolean).join(", ");
+
+      res.status(409).json({
+        error: `No se puede borrar esta sesión porque tiene datos vinculados: ${reasons}.`,
+      });
+      return;
+    }
+
+    await prisma.sesion.delete({ where: { id } });
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
 sessionsRouter.get("/:id", async (req, res, next) => {
   try {
     const id = Number(req.params.id);
