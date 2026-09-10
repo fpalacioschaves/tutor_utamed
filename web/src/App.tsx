@@ -14,10 +14,11 @@ import { SubjectsPage } from "./pages/SubjectsPage";
 import { ContentsPage } from "./pages/ContentsPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { AlertsPage } from "./pages/AlertsPage";
+import { SettingsPage } from "./pages/SettingsPage";
 
-type View = "dashboard" | "sessions" | "students" | "subjects" | "contents" | "activities" | "tutorials" | "followups" | "incidents" | "communications" | "alerts" | "reports" | "placeholder";
+type View = "dashboard" | "sessions" | "students" | "subjects" | "contents" | "activities" | "tutorials" | "followups" | "incidents" | "communications" | "alerts" | "reports" | "settings" | "placeholder";
 
-const NAV_ITEMS = ["Dashboard", "Sesiones", "Alumnos", "Asignaturas", "Contenidos", "Actividades", "Tutorías", "Seguimientos", "Incidencias", "Comunicaciones", "Alertas", "Informes"];
+const NAV_ITEMS = ["Dashboard", "Sesiones", "Alumnos", "Asignaturas", "Contenidos", "Actividades", "Tutorías", "Seguimientos", "Incidencias", "Comunicaciones", "Alertas", "Informes", "Configuración"];
 
 function App() {
   const [view, setView] = useState<View>("dashboard");
@@ -56,6 +57,7 @@ function App() {
     else if (label === "Comunicaciones") setView("communications");
     else if (label === "Alertas") setView("alerts");
     else if (label === "Informes") setView("reports");
+    else if (label === "Configuración") setView("settings");
     else setView("placeholder");
   }
 
@@ -144,6 +146,8 @@ function App() {
           <AlertsPage onOpenStudent={openStudent} />
         ) : view === "reports" ? (
           <ReportsPage />
+        ) : view === "settings" ? (
+          <SettingsPage />
         ) : (
           <section className="panel placeholder-panel">
             <p className="eyebrow">PRÓXIMAMENTE</p>
