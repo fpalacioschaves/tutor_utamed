@@ -13,6 +13,13 @@ type DraftRecord = {
   observacion: string;
 };
 
+type SessionDeletionImpact = {
+  attendanceRecords: number;
+  followUps: number;
+  incidents: number;
+  hasLinkedData: boolean;
+};
+
 type AttendanceFilter = "ALL" | "UNREGISTERED" | AttendanceState;
 
 const ATTENDANCE_OPTIONS: Array<{ value: AttendanceState; label: string }> = [
@@ -140,16 +147,41 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
   async function deleteSession() {
     if (!session) return;
 
-    const date = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" }).format(new Date(session.inicio));
-    const warning = dirty
-      ? "\n\nAdemás, hay cambios de asistencia sin guardar que se perderán."
-      : "";
-    if (!window.confirm(`¿Borrar definitivamente esta sesión de ${session.asignatura.nombre} del ${date}?${warning}\n\nEsta acción no se puede deshacer.`)) return;
-
     setDeleting(true);
     setMessage("");
     setSuccess(false);
+
     try {
+      const impactResponse = await fetch(`/api/sessions/${sessionId}/delete-impact`);
+      const impactBody = await impactResponse.json().catch(() => ({}));
+      if (!impactResponse.ok) throw new Error(impactBody.error ?? "No se pudo comprobar qué datos están asociados a la sesión");
+      const impact = impactBody as SessionDeletionImpact;
+
+      const date = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" }).format(new Date(session.inicio));
+      const linkedDetails = [
+        impact.attendanceRecords > 0
+          ? `- ${impact.attendanceRecords} registro${impact.attendanceRecords === 1 ? "" : "s"} de asistencia/observaciones`
+          : null,
+        impact.followUps > 0
+          ? `- ${impact.followUps} seguimiento${impact.followUps === 1 ? "" : "s"}`
+          : null,
+        impact.incidents > 0
+          ? `- ${impact.incidents} incidencia${impact.incidents === 1 ? "" : "s"}`
+          : null,
+      ].filter(Boolean).join("\n");
+
+      const linkedWarning = impact.hasLinkedData
+        ? `\n\nATENCIÓN: esta sesión tiene datos asociados. También se eliminarán:\n${linkedDetails}`
+        : "";
+      const unsavedWarning = dirty
+        ? "\n\nAdemás, hay cambios de asistencia sin guardar que se perderán."
+        : "";
+
+      const confirmed = window.confirm(
+        `¿Borrar definitivamente esta sesión de ${session.asignatura.nombre} del ${date}?${linkedWarning}${unsavedWarning}\n\nEsta acción no se puede deshacer.`,
+      );
+      if (!confirmed) return;
+
       const response = await fetch(`/api/sessions/${sessionId}`, { method: "DELETE" });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -197,7 +229,7 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
           )}
           {dirty && <span className="unsaved-pill">Cambios sin guardar</span>}
           <button className="secondary content-delete" type="button" disabled={saving || deleting} onClick={() => void deleteSession()}>
-            {deleting ? "Borrando…" : "Borrar sesión"}
+            {deleting ? "Comprobando…" : "Borrar sesión"}
           </button>
           <button className="primary" type="button" disabled={saving || deleting || !dirty || cancelled} onClick={() => void save()}>{saving ? "Guardando…" : "Guardar cambios"}</button>
         </div>

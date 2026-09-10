@@ -14,6 +14,28 @@ async function validateUnitForSubject(asignaturaId: number, unidadId: unknown) {
   return unit ? numericUnitId : undefined;
 }
 
+async function getSessionDeletionImpact(sessionId: number) {
+  const [attendanceRecords, followUps, incidents] = await Promise.all([
+    prisma.registroSesion.count({ where: { sesionId: sessionId } }),
+    prisma.seguimiento.count({
+      where: {
+        OR: [
+          { sesionId: sessionId },
+          { incidencia: { sesionId: sessionId } },
+        ],
+      },
+    }),
+    prisma.incidencia.count({ where: { sesionId: sessionId } }),
+  ]);
+
+  return {
+    attendanceRecords,
+    followUps,
+    incidents,
+    hasLinkedData: attendanceRecords > 0 || followUps > 0 || incidents > 0,
+  };
+}
+
 const ATTENDANCE_STATES = new Set([
   "PRESENTE",
   "AUSENTE",
@@ -201,6 +223,26 @@ sessionsRouter.put("/:id", async (req, res, next) => {
   }
 });
 
+sessionsRouter.get("/:id/delete-impact", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Identificador de sesión no válido" });
+      return;
+    }
+
+    const existing = await prisma.sesion.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) {
+      res.status(404).json({ error: "Sesión no encontrada" });
+      return;
+    }
+
+    res.json(await getSessionDeletionImpact(id));
+  } catch (error) {
+    next(error);
+  }
+});
+
 sessionsRouter.delete("/:id", async (req, res, next) => {
   try {
     const id = Number(req.params.id);
@@ -209,41 +251,31 @@ sessionsRouter.delete("/:id", async (req, res, next) => {
       return;
     }
 
-    const existing = await prisma.sesion.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        _count: {
-          select: {
-            registros: true,
-            seguimientos: true,
-            incidencias: true,
-          },
-        },
-      },
-    });
-
+    const existing = await prisma.sesion.findUnique({ where: { id }, select: { id: true } });
     if (!existing) {
       res.status(404).json({ error: "Sesión no encontrada" });
       return;
     }
 
-    const linked = existing._count;
-    if (linked.registros > 0 || linked.seguimientos > 0 || linked.incidencias > 0) {
-      const reasons = [
-        linked.registros > 0 ? `${linked.registros} registro${linked.registros === 1 ? "" : "s"} de asistencia/observaciones` : null,
-        linked.seguimientos > 0 ? `${linked.seguimientos} seguimiento${linked.seguimientos === 1 ? "" : "s"}` : null,
-        linked.incidencias > 0 ? `${linked.incidencias} incidencia${linked.incidencias === 1 ? "" : "s"}` : null,
-      ].filter(Boolean).join(", ");
+    const impact = await getSessionDeletionImpact(id);
 
-      res.status(409).json({
-        error: `No se puede borrar esta sesión porque tiene datos vinculados: ${reasons}.`,
-      });
-      return;
-    }
+    await prisma.$transaction([
+      // Primero se eliminan todos los seguimientos vinculados directamente a
+      // la sesión o a una incidencia de esta sesión, para respetar las claves foráneas.
+      prisma.seguimiento.deleteMany({
+        where: {
+          OR: [
+            { sesionId: id },
+            { incidencia: { sesionId: id } },
+          ],
+        },
+      }),
+      prisma.incidencia.deleteMany({ where: { sesionId: id } }),
+      prisma.registroSesion.deleteMany({ where: { sesionId: id } }),
+      prisma.sesion.delete({ where: { id } }),
+    ]);
 
-    await prisma.sesion.delete({ where: { id } });
-    res.status(204).end();
+    res.json({ deleted: true, impact });
   } catch (error) {
     next(error);
   }
