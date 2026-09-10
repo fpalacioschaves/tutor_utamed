@@ -6,5 +6,6 @@ api/prisma/dev.db
 api/prisma/dev.db-journal
 local-content/
 local-data/
+local-backups/
 *.log
 .DS_Store
