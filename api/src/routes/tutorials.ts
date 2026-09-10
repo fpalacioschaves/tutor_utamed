@@ -11,6 +11,17 @@ function nullableDate(value: unknown) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+async function getTutorialDeletionImpact(tutorialId: number) {
+  const followUps = await prisma.seguimiento.count({
+    where: { tutoriaIndividualId: tutorialId },
+  });
+
+  return {
+    followUps,
+    hasLinkedData: followUps > 0,
+  };
+}
+
 tutorialsRouter.get("/", async (req, res, next) => {
   try {
     const studentId = req.query.studentId ? Number(req.query.studentId) : undefined;
@@ -94,6 +105,53 @@ tutorialsRouter.put("/:id", async (req, res, next) => {
       include: { alumno: true, asignatura: true, _count: { select: { seguimientos: true } } },
     });
     res.json(tutorial);
+  } catch (error) {
+    next(error);
+  }
+});
+
+tutorialsRouter.get("/:id/delete-impact", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Identificador de tutoría no válido" });
+      return;
+    }
+
+    const existing = await prisma.tutoriaIndividual.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) {
+      res.status(404).json({ error: "Tutoría no encontrada" });
+      return;
+    }
+
+    res.json(await getTutorialDeletionImpact(id));
+  } catch (error) {
+    next(error);
+  }
+});
+
+tutorialsRouter.delete("/:id", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      res.status(400).json({ error: "Identificador de tutoría no válido" });
+      return;
+    }
+
+    const existing = await prisma.tutoriaIndividual.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) {
+      res.status(404).json({ error: "Tutoría no encontrada" });
+      return;
+    }
+
+    const impact = await getTutorialDeletionImpact(id);
+
+    await prisma.$transaction([
+      prisma.seguimiento.deleteMany({ where: { tutoriaIndividualId: id } }),
+      prisma.tutoriaIndividual.delete({ where: { id } }),
+    ]);
+
+    res.json({ deleted: true, impact });
   } catch (error) {
     next(error);
   }

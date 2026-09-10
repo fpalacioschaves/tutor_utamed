@@ -11,6 +11,11 @@ const STATUS_LABELS: Record<TutorialState, string> = {
 
 type FilterState = "ALL" | TutorialState;
 
+type TutorialDeletionImpact = {
+  followUps: number;
+  hasLinkedData: boolean;
+};
+
 function toLocalInput(value: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -33,6 +38,7 @@ export function TutorialsPage() {
   const [editing, setEditing] = useState<Tutorial | null>(null);
   const [followUpFor, setFollowUpFor] = useState<Tutorial | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -156,6 +162,41 @@ export function TutorialsPage() {
     }
   }
 
+  async function deleteTutorial(tutorial: Tutorial) {
+    setError("");
+    setMessage("");
+
+    try {
+      const impactResponse = await fetch(`/api/tutorials/${tutorial.id}/delete-impact`);
+      const impactBody = await impactResponse.json().catch(() => ({}));
+      if (!impactResponse.ok) throw new Error(impactBody.error ?? "No se pudo comprobar la tutoría");
+
+      const impact = impactBody as TutorialDeletionImpact;
+      const linkedWarning = impact.followUps > 0
+        ? `\n\nTambién se eliminarán ${impact.followUps} seguimiento${impact.followUps === 1 ? "" : "s"} vinculado${impact.followUps === 1 ? "" : "s"} a esta tutoría.`
+        : "";
+      const date = formatDate(tutorial.inicio ?? tutorial.fechaSolicitud);
+      const confirmed = window.confirm(
+        `¿Borrar definitivamente la tutoría de ${tutorial.alumno.nombre} ${tutorial.alumno.apellidos} (${date})?${linkedWarning}\n\nEsta acción no se puede deshacer.`,
+      );
+      if (!confirmed) return;
+
+      setDeletingId(tutorial.id);
+      const response = await fetch(`/api/tutorials/${tutorial.id}`, { method: "DELETE" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "No se pudo borrar la tutoría");
+
+      if (editing?.id === tutorial.id) setEditing(null);
+      if (followUpFor?.id === tutorial.id) setFollowUpFor(null);
+      setMessage("Tutoría eliminada correctamente.");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo borrar la tutoría");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   function startEditing(tutorial: Tutorial) {
     setEditing(tutorial);
     setFollowUpFor(null);
@@ -189,6 +230,9 @@ export function TutorialsPage() {
         <article className="mini-stat"><span>Realizadas</span><strong>{counts.realizadas}</strong></article>
       </section>
 
+      {error && <div className="notice-banner error" role="alert">{error}</div>}
+      {message && <div className="notice-banner success" role="status">{message}</div>}
+
       <section className="content-grid tutorials-grid">
         <article className="panel" ref={formPanelRef}>
           <div className="panel-heading"><div><p className="eyebrow">{editing ? "EDITANDO" : "NUEVA"}</p><h3>{editing ? "Editar tutoría" : "Nueva tutoría"}</h3></div></div>
@@ -221,11 +265,9 @@ export function TutorialsPage() {
             <label>Observaciones<textarea name="observaciones" rows={4} defaultValue={editing?.observaciones ?? ""} placeholder="Qué se ha tratado en la tutoría" /></label>
             <label>Acuerdos<textarea name="acuerdos" rows={3} defaultValue={editing?.acuerdos ?? ""} placeholder="Tareas, compromisos o próximos pasos" /></label>
             <div className="form-actions">
-              <button className="primary" type="submit" disabled={saving}>{saving ? "Guardando…" : editing ? "Guardar cambios" : "Guardar tutoría"}</button>
-              {editing && <button className="secondary" type="button" onClick={() => { setEditing(null); setError(""); setMessage(""); }}>Cancelar</button>}
+              <button className="primary" type="submit" disabled={saving || deletingId !== null}>{saving ? "Guardando…" : editing ? "Guardar cambios" : "Guardar tutoría"}</button>
+              {editing && <button className="secondary" type="button" disabled={deletingId !== null} onClick={() => { setEditing(null); setError(""); setMessage(""); }}>Cancelar</button>}
             </div>
-            {error && <p className="form-error" role="alert">{error}</p>}
-            {message && <p className="save-message success" role="status">{message}</p>}
           </form>
         </article>
 
@@ -262,8 +304,11 @@ export function TutorialsPage() {
                   {tutorial.observaciones && <div className="tutorial-text"><b>Observaciones</b><p>{tutorial.observaciones}</p></div>}
                   {tutorial.acuerdos && <div className="tutorial-text"><b>Acuerdos</b><p>{tutorial.acuerdos}</p></div>}
                   <div className="tutorial-actions">
-                    <button className="secondary compact-button" type="button" onClick={() => startEditing(tutorial)}>Editar</button>
-                    <button className="primary compact-button" type="button" onClick={() => { setFollowUpFor(followUpFor?.id === tutorial.id ? null : tutorial); setEditing(null); setError(""); setMessage(""); }}>Crear seguimiento</button>
+                    <button className="secondary compact-button" type="button" disabled={deletingId !== null} onClick={() => startEditing(tutorial)}>Editar</button>
+                    <button className="primary compact-button" type="button" disabled={deletingId !== null} onClick={() => { setFollowUpFor(followUpFor?.id === tutorial.id ? null : tutorial); setEditing(null); setError(""); setMessage(""); }}>Crear seguimiento</button>
+                    <button className="secondary compact-button content-delete" type="button" disabled={deletingId !== null || saving} onClick={() => void deleteTutorial(tutorial)}>
+                      {deletingId === tutorial.id ? "Borrando…" : "Borrar tutoría"}
+                    </button>
                     {(tutorial._count?.seguimientos ?? 0) > 0 && <small>{tutorial._count?.seguimientos} seguimiento(s) vinculado(s)</small>}
                   </div>
                   {followUpFor?.id === tutorial.id && (
