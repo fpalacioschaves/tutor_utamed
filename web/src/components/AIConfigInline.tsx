@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { AiConfig } from "../types";
 
 type Props = {
-  onClose: () => void;
+  onClose?: () => void;
 };
 
 const DEFAULT_CONFIG: AiConfig = {
@@ -11,7 +11,7 @@ const DEFAULT_CONFIG: AiConfig = {
   model: "qwen3:8b",
 };
 
-export function AIConfigInline({ onClose }: Props) {
+export function AIConfigInline({ onClose }: Props = {}) {
   const [config, setConfig] = useState<AiConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -84,7 +84,9 @@ export function AIConfigInline({ onClose }: Props) {
           <strong>Configuración general de IA</strong>
           <small>Esta configuración afecta a todas las unidades y a las demás funciones de IA de Tutor UTAMED.</small>
         </div>
-        <button className="secondary compact-button" type="button" onClick={onClose}>Cerrar configuración</button>
+        {onClose && (
+          <button className="secondary compact-button" type="button" onClick={onClose}>Cerrar configuración</button>
+        )}
       </div>
 
       <div className="ai-privacy-note">
