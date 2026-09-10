@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { AIConfigInline } from "./AIConfigInline";
 
 type MaterialItem = {
   id: string;
@@ -73,7 +72,6 @@ export function UnitMaterialTools({ unit }: Props) {
   const [aiLoading, setAiLoading] = useState<TeachingMode | null>(null);
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [instruction, setInstruction] = useState("");
-  const [configOpen, setConfigOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   async function loadMaterials() {
@@ -250,16 +248,7 @@ export function UnitMaterialTools({ unit }: Props) {
                 <strong>Preguntar a la IA sobre esta unidad</strong>
                 <small>Ollama utilizará automáticamente todos los archivos de esta unidad que estén preparados para IA.</small>
               </div>
-              <button
-                className="secondary compact-button"
-                type="button"
-                onClick={() => setConfigOpen((value) => !value)}
-              >
-                {configOpen ? "Ocultar configuración" : "Configurar IA"}
-              </button>
             </div>
-
-            {configOpen && <AIConfigInline onClose={() => setConfigOpen(false)} />}
 
             <label className="unit-ai-instruction">
               ¿Qué quieres hacer con esta unidad?
