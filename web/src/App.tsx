@@ -14,11 +14,10 @@ import { SubjectsPage } from "./pages/SubjectsPage";
 import { ContentsPage } from "./pages/ContentsPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { AlertsPage } from "./pages/AlertsPage";
-import { AISettingsPage } from "./pages/AISettingsPage";
 
-type View = "dashboard" | "sessions" | "students" | "subjects" | "contents" | "activities" | "tutorials" | "followups" | "incidents" | "communications" | "alerts" | "ai" | "reports" | "placeholder";
+type View = "dashboard" | "sessions" | "students" | "subjects" | "contents" | "activities" | "tutorials" | "followups" | "incidents" | "communications" | "alerts" | "reports" | "placeholder";
 
-const NAV_ITEMS = ["Dashboard", "Sesiones", "Alumnos", "Asignaturas", "Contenidos", "Actividades", "Tutorías", "Seguimientos", "Incidencias", "Comunicaciones", "Alertas", "IA", "Informes"];
+const NAV_ITEMS = ["Dashboard", "Sesiones", "Alumnos", "Asignaturas", "Contenidos", "Actividades", "Tutorías", "Seguimientos", "Incidencias", "Comunicaciones", "Alertas", "Informes"];
 
 function App() {
   const [view, setView] = useState<View>("dashboard");
@@ -56,7 +55,6 @@ function App() {
     else if (label === "Incidencias") setView("incidents");
     else if (label === "Comunicaciones") setView("communications");
     else if (label === "Alertas") setView("alerts");
-    else if (label === "IA") setView("ai");
     else if (label === "Informes") setView("reports");
     else setView("placeholder");
   }
@@ -144,8 +142,6 @@ function App() {
           <CommunicationsPage />
         ) : view === "alerts" ? (
           <AlertsPage onOpenStudent={openStudent} />
-        ) : view === "ai" ? (
-          <AISettingsPage />
         ) : view === "reports" ? (
           <ReportsPage />
         ) : (
