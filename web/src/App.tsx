@@ -133,6 +133,7 @@ function App() {
             onOpenFollowUps={() => navigate("Seguimientos")}
             onOpenIncidents={() => navigate("Incidencias")}
             onOpenAlerts={() => navigate("Alertas")}
+            onOpenCalendar={() => navigate("Calendario")}
           />
         ) : view === "calendar" ? (
           <CalendarPage onOpenSession={openSession} onOpenTutorial={openTutorial} />
