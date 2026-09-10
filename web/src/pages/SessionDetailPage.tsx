@@ -35,6 +35,7 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
   const [baseline, setBaseline] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
   const [search, setSearch] = useState("");
@@ -136,6 +137,34 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
     }
   }
 
+  async function deleteSession() {
+    if (!session) return;
+
+    const date = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" }).format(new Date(session.inicio));
+    const warning = dirty
+      ? "\n\nAdemás, hay cambios de asistencia sin guardar que se perderán."
+      : "";
+    if (!window.confirm(`¿Borrar definitivamente esta sesión de ${session.asignatura.nombre} del ${date}?${warning}\n\nEsta acción no se puede deshacer.`)) return;
+
+    setDeleting(true);
+    setMessage("");
+    setSuccess(false);
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}`, { method: "DELETE" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? "No se pudo borrar la sesión");
+      }
+      onDirtyChange?.(false);
+      onBack();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "No se pudo borrar la sesión");
+      setSuccess(false);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   function handleBack() {
     if (dirty && !window.confirm("Hay cambios sin guardar en esta sesión. ¿Quieres salir y descartarlos?")) return;
     onBack();
@@ -167,7 +196,10 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
             </span>
           )}
           {dirty && <span className="unsaved-pill">Cambios sin guardar</span>}
-          <button className="primary" type="button" disabled={saving || !dirty || cancelled} onClick={() => void save()}>{saving ? "Guardando…" : "Guardar cambios"}</button>
+          <button className="secondary content-delete" type="button" disabled={saving || deleting} onClick={() => void deleteSession()}>
+            {deleting ? "Borrando…" : "Borrar sesión"}
+          </button>
+          <button className="primary" type="button" disabled={saving || deleting || !dirty || cancelled} onClick={() => void save()}>{saving ? "Guardando…" : "Guardar cambios"}</button>
         </div>
       </header>
 
@@ -259,7 +291,7 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
       {!cancelled && (
         <div className="activity-save-footer">
           <span className={success ? "save-message success" : "save-message"}>{message || (dirty ? "Hay cambios sin guardar." : "Todo guardado.")}</span>
-          <button className="primary" type="button" disabled={saving || !dirty} onClick={() => void save()}>{saving ? "Guardando…" : "Guardar cambios"}</button>
+          <button className="primary" type="button" disabled={saving || deleting || !dirty} onClick={() => void save()}>{saving ? "Guardando…" : "Guardar cambios"}</button>
         </div>
       )}
     </>
