@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { DashboardPage } from "./pages/DashboardPage";
+import { CalendarPage } from "./pages/CalendarPage";
 import { SessionDetailPage } from "./pages/SessionDetailPage";
 import { SessionsPage } from "./pages/SessionsPage";
 import { StudentsPage } from "./pages/StudentsPage";
@@ -16,9 +17,9 @@ import { ReportsPage } from "./pages/ReportsPage";
 import { AlertsPage } from "./pages/AlertsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
-type View = "dashboard" | "sessions" | "students" | "subjects" | "contents" | "activities" | "tutorials" | "followups" | "incidents" | "communications" | "alerts" | "reports" | "settings" | "placeholder";
+type View = "dashboard" | "calendar" | "sessions" | "students" | "subjects" | "contents" | "activities" | "tutorials" | "followups" | "incidents" | "communications" | "alerts" | "reports" | "settings" | "placeholder";
 
-const NAV_ITEMS = ["Dashboard", "Sesiones", "Alumnos", "Asignaturas", "Contenidos", "Actividades", "Tutorías", "Seguimientos", "Incidencias", "Comunicaciones", "Alertas", "Informes", "Configuración"];
+const NAV_ITEMS = ["Dashboard", "Calendario", "Sesiones", "Alumnos", "Asignaturas", "Contenidos", "Actividades", "Tutorías", "Seguimientos", "Incidencias", "Comunicaciones", "Alertas", "Informes", "Configuración"];
 
 function App() {
   const [view, setView] = useState<View>("dashboard");
@@ -46,6 +47,7 @@ function App() {
     setActivityId(null);
     setActiveLabel(label);
     if (label === "Dashboard") setView("dashboard");
+    else if (label === "Calendario") setView("calendar");
     else if (label === "Sesiones") setView("sessions");
     else if (label === "Alumnos") setView("students");
     else if (label === "Asignaturas") setView("subjects");
@@ -67,6 +69,14 @@ function App() {
     setSessionId(id);
     setView("sessions");
     setActiveLabel("Sesiones");
+  }
+
+  function openTutorial(_id: number) {
+    setSessionId(null);
+    setStudentId(null);
+    setActivityId(null);
+    setView("tutorials");
+    setActiveLabel("Tutorías");
   }
 
   function openStudent(id: number) {
@@ -124,6 +134,8 @@ function App() {
             onOpenIncidents={() => navigate("Incidencias")}
             onOpenAlerts={() => navigate("Alertas")}
           />
+        ) : view === "calendar" ? (
+          <CalendarPage onOpenSession={openSession} onOpenTutorial={openTutorial} />
         ) : view === "sessions" ? (
           <SessionsPage onOpenSession={openSession} />
         ) : view === "students" ? (
