@@ -72,6 +72,14 @@
   overflow-wrap: anywhere;
 }
 
+.backup-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .backup-tags {
   display: flex;
   align-items: center;
@@ -80,6 +88,14 @@
   flex-wrap: wrap;
   font-size: 0.78rem;
   color: #64748b;
+}
+
+.backup-restore-button {
+  flex: 0 0 auto;
+}
+
+.backup-safety-tag {
+  white-space: nowrap;
 }
 
 .dashboard-agenda-heading {
@@ -148,6 +164,7 @@
     grid-template-columns: 1fr;
   }
 
+  .backup-actions,
   .backup-tags {
     justify-content: flex-start;
   }

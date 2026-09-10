@@ -5,6 +5,7 @@ type BackupInfo = {
   createdAt: string;
   relativePath: string;
   sizeBytes: number;
+  kind?: "MANUAL" | "PRE_RESTORE";
   includes: {
     database: boolean;
     localContent: boolean;
@@ -31,6 +32,7 @@ export function BackupSettings() {
   const [backupsRoot, setBackupsRoot] = useState("local-backups");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -71,7 +73,41 @@ export function BackupSettings() {
     }
   }
 
+  async function restoreBackup(backup: BackupInfo) {
+    const warning = [
+      `¿Restaurar la copia del ${formatDate(backup.createdAt)}?`,
+      "",
+      "Los datos actuales de Tutor UTAMED serán sustituidos por los guardados en esa copia.",
+      "Antes de hacerlo se creará automáticamente una nueva copia del estado actual, por si necesitas volver atrás.",
+      "",
+      "Esta operación afecta a la base de datos, los materiales y los datos locales incluidos en la copia.",
+    ].join("\n");
+
+    if (!window.confirm(warning)) return;
+
+    setRestoring(backup.name);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(`/api/backups/${encodeURIComponent(backup.name)}/restore`, { method: "POST" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "No se pudo restaurar la copia de seguridad");
+
+      const safetyDate = body.safetyBackup?.createdAt ? formatDate(body.safetyBackup.createdAt) : null;
+      window.alert(
+        safetyDate
+          ? `Copia restaurada correctamente.\n\nAntes de restaurar se guardó automáticamente el estado anterior (${safetyDate}). La aplicación se recargará ahora.`
+          : "Copia restaurada correctamente. La aplicación se recargará ahora.",
+      );
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo restaurar la copia de seguridad");
+      setRestoring(null);
+    }
+  }
+
   const latest = backups[0] ?? null;
+  const busy = creating || restoring !== null;
 
   return (
     <section className="panel backup-settings-panel">
@@ -79,9 +115,9 @@ export function BackupSettings() {
         <div>
           <p className="eyebrow">SEGURIDAD DE DATOS</p>
           <h3>Copias de seguridad</h3>
-          <p className="muted">Guarda una copia local de la base de datos, los materiales docentes y los datos auxiliares de Tutor UTAMED.</p>
+          <p className="muted">Guarda y recupera el estado local de Tutor UTAMED: base de datos, materiales docentes y datos auxiliares.</p>
         </div>
-        <button className="primary" type="button" onClick={() => void createBackup()} disabled={creating}>
+        <button className="primary" type="button" onClick={() => void createBackup()} disabled={busy}>
           {creating ? "Creando copia…" : "Crear copia de seguridad"}
         </button>
       </div>
@@ -104,23 +140,34 @@ export function BackupSettings() {
         </div>
       </div>
 
-      <p className="backup-note">Las copias se guardan únicamente en tu equipo y esta carpeta está excluida de GitHub. La restauración automática la añadiremos como una función independiente con sus propias comprobaciones de seguridad.</p>
+      <p className="backup-note">Al restaurar una copia, el estado actual se guarda automáticamente en una nueva copia antes de sustituir nada. Las copias permanecen únicamente en tu equipo y la carpeta está excluida de GitHub.</p>
 
       {loading ? (
         <p className="muted">Comprobando copias existentes…</p>
       ) : backups.length > 0 ? (
         <div className="backup-list">
-          {backups.slice(0, 6).map((backup) => (
+          {backups.slice(0, 8).map((backup) => (
             <article className="backup-row" key={backup.name}>
               <div>
                 <strong>{formatDate(backup.createdAt)}</strong>
                 <small>{backup.relativePath}</small>
               </div>
-              <div className="backup-tags">
-                {backup.includes.database && <span className="tag">Base de datos</span>}
-                {backup.includes.localContent && <span className="tag">Materiales</span>}
-                {backup.includes.localData && <span className="tag">Datos locales</span>}
-                <span>{formatBytes(backup.sizeBytes)}</span>
+              <div className="backup-actions">
+                <div className="backup-tags">
+                  {backup.kind === "PRE_RESTORE" && <span className="tag backup-safety-tag">Automática antes de restaurar</span>}
+                  {backup.includes.database && <span className="tag">Base de datos</span>}
+                  {backup.includes.localContent && <span className="tag">Materiales</span>}
+                  {backup.includes.localData && <span className="tag">Datos locales</span>}
+                  <span>{formatBytes(backup.sizeBytes)}</span>
+                </div>
+                <button
+                  className="secondary compact-button backup-restore-button"
+                  type="button"
+                  disabled={busy || !backup.includes.database}
+                  onClick={() => void restoreBackup(backup)}
+                >
+                  {restoring === backup.name ? "Restaurando…" : "Restaurar"}
+                </button>
               </div>
             </article>
           ))}

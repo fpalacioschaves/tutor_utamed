@@ -28,7 +28,7 @@ app.use(cors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:5173" }));
 app.use(express.json({ limit: "36mb" }));
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, service: "Tutor UTAMED API", version: "0.19.0" });
+  res.json({ ok: true, service: "Tutor UTAMED API", version: "0.19.1" });
 });
 
 app.use("/api/courses", coursesRouter);
