@@ -127,11 +127,7 @@ export function SessionsPage({ onOpenSession }: Props) {
         ].join(" ").toLocaleLowerCase("es");
         return haystack.includes(query);
       })
-      .sort((a, b) => {
-        const aTime = new Date(a.inicio).getTime();
-        const bTime = new Date(b.inicio).getTime();
-        return period === "UPCOMING" ? aTime - bTime : bTime - aTime;
-      });
+      .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime());
   }, [sessions, search, filterSubjectId, filterType, filterState, period]);
 
   function startCreating() {
