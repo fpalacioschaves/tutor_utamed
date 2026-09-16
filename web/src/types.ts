@@ -13,6 +13,7 @@ export type Summary = {
     sessions: Array<{
       id: number;
       tipo: "CLASE" | "TUTORIA_GRUPAL";
+      categoria: SessionCategory;
       titulo: string | null;
       tema: string | null;
       inicio: string;
@@ -75,11 +76,15 @@ export type Unit = {
   _count?: { sesiones: number; actividades: number };
 };
 
+export type SessionCategory = "PRESENTACION" | "TEORICA" | "REPASO" | "REPASO_GENERAL" | "SIMULACRO" | "TUTORIA_DUDAS";
+
 export type Session = {
   id: number;
   tipo: "CLASE" | "TUTORIA_GRUPAL";
+  categoria: SessionCategory;
   titulo: string | null;
   tema: string | null;
+  observacionesGenerales: string | null;
   inicio: string;
   fin: string;
   estado: "PROGRAMADA" | "REALIZADA" | "CANCELADA";
