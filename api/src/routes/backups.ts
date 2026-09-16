@@ -11,7 +11,7 @@ const DATABASE_PATH = path.join(REPO_ROOT, "api", "prisma", "dev.db");
 const LOCAL_CONTENT_PATH = path.join(REPO_ROOT, "local-content");
 const LOCAL_DATA_PATH = path.join(REPO_ROOT, "local-data");
 
-type BackupKind = "MANUAL" | "PRE_RESTORE";
+export type BackupKind = "MANUAL" | "PRE_RESTORE" | "PRE_CLEANUP";
 
 type BackupManifest = {
   name: string;
@@ -120,7 +120,7 @@ async function flushDatabase() {
   }
 }
 
-async function createBackup(kind: BackupKind = "MANUAL") {
+export async function createBackup(kind: BackupKind = "MANUAL") {
   const createdAt = new Date();
   const name = backupName(createdAt);
   const directory = path.join(BACKUPS_ROOT, name);
