@@ -270,3 +270,202 @@ academicScheduleImportRouter.post("/import", async (_req, res, next) => {
     next(error);
   }
 });
+
+
+type UnitAllocationStrategy = "HORAS_PREVISTAS" | "EQUILIBRADO";
+
+type AllocationUnit = {
+  id: number;
+  orden: number;
+  titulo: string;
+  horasPrevistas: number | null;
+};
+
+function distributeSessionCounts(units: AllocationUnit[], totalSessions: number) {
+  if (units.length === 0) return { strategy: "EQUILIBRADO" as UnitAllocationStrategy, counts: [] as number[] };
+  if (units.length > totalSessions) {
+    throw new Error(`Hay ${units.length} unidades activas para solo ${totalSessions} sesiones teóricas.`);
+  }
+
+  const allHoursAvailable = units.every((unit) => typeof unit.horasPrevistas === "number" && unit.horasPrevistas > 0);
+  if (!allHoursAvailable) {
+    const base = Math.floor(totalSessions / units.length);
+    const remainder = totalSessions % units.length;
+    return {
+      strategy: "EQUILIBRADO" as UnitAllocationStrategy,
+      counts: units.map((_unit, index) => base + (index < remainder ? 1 : 0)),
+    };
+  }
+
+  const remaining = totalSessions - units.length;
+  const totalHours = units.reduce((sum, unit) => sum + (unit.horasPrevistas ?? 0), 0);
+  const exactExtras = units.map((unit) => remaining * ((unit.horasPrevistas ?? 0) / totalHours));
+  const extras = exactExtras.map((value) => Math.floor(value));
+  let left = remaining - extras.reduce((sum, value) => sum + value, 0);
+
+  const remainderOrder = exactExtras
+    .map((value, index) => ({ index, remainder: value - Math.floor(value) }))
+    .sort((a, b) => b.remainder - a.remainder || a.index - b.index);
+
+  for (const item of remainderOrder) {
+    if (left <= 0) break;
+    extras[item.index] += 1;
+    left -= 1;
+  }
+
+  return {
+    strategy: "HORAS_PREVISTAS" as UnitAllocationStrategy,
+    counts: extras.map((extra) => extra + 1),
+  };
+}
+
+async function buildUnitAllocationPreview() {
+  const { resolved } = await resolveCourseAndSubjects();
+
+  const subjects = await Promise.all(resolved.map(async ({ spec, subject }) => {
+    const units = await prisma.unidad.findMany({
+      where: { asignaturaId: subject!.id, activa: true },
+      select: { id: true, orden: true, titulo: true, horasPrevistas: true },
+      orderBy: { orden: "asc" },
+    });
+
+    const sessions = await prisma.sesion.findMany({
+      where: {
+        asignaturaId: subject!.id,
+        categoria: "TEORICA",
+        referenciaExterna: { startsWith: `utamed-2026-2027-${spec.code}-` },
+      },
+      select: {
+        id: true,
+        titulo: true,
+        inicio: true,
+        unidadId: true,
+      },
+      orderBy: { inicio: "asc" },
+    });
+
+    const issues: string[] = [];
+    if (sessions.length !== 22) {
+      issues.push(`Se esperaban 22 sesiones teóricas importadas y hay ${sessions.length}.`);
+    }
+    if (units.length === 0) {
+      issues.push("No hay unidades activas en esta asignatura.");
+    }
+    if (units.length > 22) {
+      issues.push(`Hay ${units.length} unidades activas para solo 22 sesiones teóricas.`);
+    }
+
+    if (issues.length > 0) {
+      return {
+        code: spec.code,
+        subject: { id: subject!.id, nombre: subject!.nombre },
+        ready: false,
+        issues,
+        strategy: null,
+        units: units.map((unit) => ({ ...unit, sessions: 0, from: null, to: null })),
+        assignments: [],
+        sessionCount: sessions.length,
+      };
+    }
+
+    const distribution = distributeSessionCounts(units, 22);
+    let sessionIndex = 0;
+    const assignments: Array<{
+      sessionId: number;
+      sessionNumber: number;
+      title: string | null;
+      date: string;
+      currentUnitId: number | null;
+      unitId: number;
+      unitOrder: number;
+      unitTitle: string;
+    }> = [];
+
+    const unitRanges = units.map((unit, unitIndex) => {
+      const count = distribution.counts[unitIndex];
+      const from = sessionIndex + 1;
+      const to = sessionIndex + count;
+
+      for (let offset = 0; offset < count; offset += 1) {
+        const session = sessions[sessionIndex + offset];
+        assignments.push({
+          sessionId: session.id,
+          sessionNumber: sessionIndex + offset + 1,
+          title: session.titulo,
+          date: session.inicio.toISOString(),
+          currentUnitId: session.unidadId,
+          unitId: unit.id,
+          unitOrder: unit.orden,
+          unitTitle: unit.titulo,
+        });
+      }
+
+      sessionIndex += count;
+      return {
+        ...unit,
+        sessions: count,
+        from,
+        to,
+      };
+    });
+
+    return {
+      code: spec.code,
+      subject: { id: subject!.id, nombre: subject!.nombre },
+      ready: true,
+      issues: [],
+      strategy: distribution.strategy,
+      units: unitRanges,
+      assignments,
+      sessionCount: sessions.length,
+    };
+  }));
+
+  return {
+    ready: subjects.every((subject) => subject.ready),
+    totalTheoreticalSessions: subjects.reduce((sum, subject) => sum + subject.sessionCount, 0),
+    subjects,
+  };
+}
+
+academicScheduleImportRouter.get("/unit-allocation-preview", async (_req, res, next) => {
+  try {
+    res.json(await buildUnitAllocationPreview());
+  } catch (error) {
+    next(error);
+  }
+});
+
+academicScheduleImportRouter.post("/unit-allocation-apply", async (_req, res, next) => {
+  try {
+    const preview = await buildUnitAllocationPreview();
+    if (!preview.ready) {
+      res.status(409).json({
+        error: "No se puede aplicar el reparto mientras haya asignaturas con incidencias.",
+        preview,
+      });
+      return;
+    }
+
+    const assignments = preview.subjects.flatMap((subject) => subject.assignments);
+    const safetyBackup = await createBackup("PRE_UNIT_ALLOCATION");
+
+    await prisma.$transaction(
+      assignments.map((assignment) =>
+        prisma.sesion.update({
+          where: { id: assignment.sessionId },
+          data: { unidadId: assignment.unitId },
+        }),
+      ),
+    );
+
+    res.json({
+      updated: assignments.length,
+      safetyBackup,
+      preview: await buildUnitAllocationPreview(),
+      message: "Unidades asignadas a las sesiones teóricas correctamente.",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
