@@ -21,6 +21,7 @@ type ImportPreview = {
   totalPlanned: number;
   existing: number;
   toCreate: number;
+  toSynchronize: number;
   firstDate: string;
   lastDate: string;
   subjects: SubjectMatch[];
@@ -62,7 +63,7 @@ export function AcademicScheduleImportSettings() {
   }, []);
 
   async function importSchedule() {
-    if (!preview || preview.toCreate === 0) return;
+    if (!preview) return;
 
     const subjectLines = preview.subjects.map(
       (item) => `• ${item.time} · ${item.subject.nombre}`,
@@ -71,13 +72,13 @@ export function AcademicScheduleImportSettings() {
     const warning = [
       "¿Importar el calendario real de clases 2026/2027?",
       "",
-      `${preview.weeklyDays} miércoles lectivos · ${preview.toCreate} sesiones nuevas.`,
+      `${preview.weeklyDays} miércoles lectivos · ${preview.toCreate} sesiones nuevas · ${preview.toSynchronize} sesiones existentes que se sincronizarán.`,
       "1.º DAM y 1.º DAW se tratarán como un único grupo: no se duplicarán sesiones.",
       "",
       ...subjectLines,
       "",
       "Antes de importar se creará automáticamente una copia de seguridad completa.",
-      "La importación es segura frente a duplicados: si vuelves a ejecutarla, las sesiones ya importadas se omitirán.",
+      "Las sesiones ya importadas no se duplicarán: se actualizarán con su categoría real (teórica, repaso, simulacro, etc.) y con los hitos del Excel.",
     ].join("\n");
 
     if (!window.confirm(warning)) return;
@@ -90,9 +91,7 @@ export function AcademicScheduleImportSettings() {
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error ?? "No se pudo importar el calendario");
       setMessage(
-        body.created > 0
-          ? `Calendario importado: ${body.created} sesiones creadas correctamente.`
-          : "El calendario ya estaba importado; no se ha creado ningún duplicado.",
+        `Temporalización sincronizada: ${body.created ?? 0} sesiones creadas y ${body.updated ?? 0} sesiones actualizadas.`,
       );
       await loadPreview();
     } catch (err) {
@@ -115,10 +114,10 @@ export function AcademicScheduleImportSettings() {
         <button
           className="primary"
           type="button"
-          disabled={loading || importing || !preview || preview.toCreate === 0}
+          disabled={loading || importing || !preview}
           onClick={() => void importSchedule()}
         >
-          {importing ? "Importando…" : preview?.toCreate === 0 ? "Calendario ya importado" : "Importar sesiones"}
+          {importing ? "Sincronizando…" : preview?.toCreate === 0 ? "Sincronizar temporalización" : "Importar y sincronizar"}
         </button>
       </div>
 
@@ -141,6 +140,10 @@ export function AcademicScheduleImportSettings() {
             <div>
               <span>Pendientes de importar</span>
               <strong>{preview.toCreate}</strong>
+            </div>
+            <div>
+              <span>Ya importadas / a sincronizar</span>
+              <strong>{preview.toSynchronize}</strong>
             </div>
             <div>
               <span>Grupo</span>

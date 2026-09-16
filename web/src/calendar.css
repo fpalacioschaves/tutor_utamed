@@ -46,17 +46,49 @@
   display: inline-block;
 }
 
-.type-clase i,
-.calendar-event.type-clase,
-.calendar-agenda-item.type-clase {
+.type-teorica i,
+.calendar-event.type-teorica,
+.calendar-agenda-item.type-teorica {
   --calendar-color: #2563eb;
   --calendar-soft: #eff6ff;
   --calendar-border: #bfdbfe;
 }
 
-.type-tutoria-grupal i,
-.calendar-event.type-tutoria-grupal,
-.calendar-agenda-item.type-tutoria-grupal {
+.type-presentacion i,
+.calendar-event.type-presentacion,
+.calendar-agenda-item.type-presentacion {
+  --calendar-color: #0891b2;
+  --calendar-soft: #ecfeff;
+  --calendar-border: #a5f3fc;
+}
+
+.type-repaso i,
+.calendar-event.type-repaso,
+.calendar-agenda-item.type-repaso {
+  --calendar-color: #d97706;
+  --calendar-soft: #fffbeb;
+  --calendar-border: #fde68a;
+}
+
+.type-repaso-general i,
+.calendar-event.type-repaso-general,
+.calendar-agenda-item.type-repaso-general {
+  --calendar-color: #b45309;
+  --calendar-soft: #fff7ed;
+  --calendar-border: #fed7aa;
+}
+
+.type-simulacro i,
+.calendar-event.type-simulacro,
+.calendar-agenda-item.type-simulacro {
+  --calendar-color: #dc2626;
+  --calendar-soft: #fef2f2;
+  --calendar-border: #fecaca;
+}
+
+.type-tutoria-dudas i,
+.calendar-event.type-tutoria-dudas,
+.calendar-agenda-item.type-tutoria-dudas {
   --calendar-color: #7c3aed;
   --calendar-soft: #f5f3ff;
   --calendar-border: #ddd6fe;
@@ -243,6 +275,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.calendar-agenda-main .calendar-agenda-note {
+  margin-top: 0.2rem;
+  color: #334155;
+  white-space: pre-line;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .calendar-agenda-type {

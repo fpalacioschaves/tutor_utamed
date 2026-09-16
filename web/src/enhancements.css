@@ -309,3 +309,36 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.session-form-wide {
+  grid-column: 1 / -1;
+}
+
+.session-milestone-note,
+.dashboard-agenda-note {
+  white-space: pre-line;
+}
+
+.session-milestone-note {
+  margin-top: 0.25rem;
+  color: #475569;
+}
+
+.session-general-notes {
+  white-space: pre-line;
+}
+
+.session-category-presentacion { background: #ecfeff; color: #0e7490; }
+.session-category-teorica { background: #eff6ff; color: #1d4ed8; }
+.session-category-repaso { background: #fffbeb; color: #b45309; }
+.session-category-repaso-general { background: #fff7ed; color: #9a3412; }
+.session-category-simulacro { background: #fef2f2; color: #b91c1c; }
+.session-category-tutoria-dudas { background: #f5f3ff; color: #6d28d9; }
+
+
+.notice-banner.info {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
+}

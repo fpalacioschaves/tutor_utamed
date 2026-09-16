@@ -36,6 +36,8 @@ async function getSessionDeletionImpact(sessionId: number) {
   };
 }
 
+const SESSION_CATEGORIES = new Set(["PRESENTACION", "TEORICA", "REPASO", "REPASO_GENERAL", "SIMULACRO", "TUTORIA_DUDAS"]);
+
 const ATTENDANCE_STATES = new Set([
   "PRESENTE",
   "AUSENTE",
@@ -82,6 +84,7 @@ sessionsRouter.post("/", async (req, res, next) => {
       asignaturaId,
       unidadId,
       tipo = "CLASE",
+      categoria = tipo === "TUTORIA_GRUPAL" ? "TUTORIA_DUDAS" : "TEORICA",
       titulo,
       inicio,
       fin,
@@ -96,6 +99,10 @@ sessionsRouter.post("/", async (req, res, next) => {
 
     if (!new Set(["CLASE", "TUTORIA_GRUPAL"]).has(tipo)) {
       res.status(400).json({ error: "Tipo de sesión no válido" });
+      return;
+    }
+    if (!SESSION_CATEGORIES.has(categoria)) {
+      res.status(400).json({ error: "Categoría académica de sesión no válida" });
       return;
     }
 
@@ -118,6 +125,7 @@ sessionsRouter.post("/", async (req, res, next) => {
         asignaturaId: numericSubjectId,
         unidadId: validatedUnitId,
         tipo,
+        categoria,
         titulo: titulo || null,
         tema: null,
         inicio: start,
@@ -147,6 +155,7 @@ sessionsRouter.put("/:id", async (req, res, next) => {
       asignaturaId,
       unidadId,
       tipo,
+      categoria,
       titulo,
       inicio,
       fin,
@@ -161,6 +170,10 @@ sessionsRouter.put("/:id", async (req, res, next) => {
 
     if (!new Set(["CLASE", "TUTORIA_GRUPAL"]).has(tipo)) {
       res.status(400).json({ error: "Tipo de sesión no válido" });
+      return;
+    }
+    if (categoria && !SESSION_CATEGORIES.has(categoria)) {
+      res.status(400).json({ error: "Categoría académica de sesión no válida" });
       return;
     }
 
@@ -199,12 +212,15 @@ sessionsRouter.put("/:id", async (req, res, next) => {
       return;
     }
 
+    const resolvedCategory = categoria || existing.categoria || (tipo === "TUTORIA_GRUPAL" ? "TUTORIA_DUDAS" : "TEORICA");
+
     const session = await prisma.sesion.update({
       where: { id },
       data: {
         asignaturaId: numericSubjectId,
         unidadId: validatedUnitId,
         tipo,
+        categoria: resolvedCategory,
         titulo: titulo ? String(titulo).trim() : null,
         // El campo tema se conserva únicamente por compatibilidad con
         // sesiones antiguas. Ya no se edita como dato separado.

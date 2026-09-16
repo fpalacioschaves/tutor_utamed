@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
-type CalendarEventType = "CLASE" | "TUTORIA_GRUPAL" | "TUTORIA_INDIVIDUAL";
+type CalendarEventType = "PRESENTACION" | "TEORICA" | "REPASO" | "REPASO_GENERAL" | "SIMULACRO" | "TUTORIA_DUDAS" | "TUTORIA_INDIVIDUAL";
 type CalendarEvent = {
   id: string;
   entityId: number;
@@ -11,6 +11,7 @@ type CalendarEvent = {
   start: string;
   end: string | null;
   status: string;
+  notes: string | null;
   subject: { id: number; nombre: string; grupo: string } | null;
   unit: { id: number; orden: number; titulo: string } | null;
   student: { id: number; nombre: string; apellidos: string } | null;
@@ -27,8 +28,12 @@ type Props = {
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const TYPE_LABELS: Record<CalendarEventType, string> = {
-  CLASE: "Clase",
-  TUTORIA_GRUPAL: "Tutoría grupal",
+  PRESENTACION: "Presentación",
+  TEORICA: "Sesión teórica",
+  REPASO: "Repaso",
+  REPASO_GENERAL: "Repaso general",
+  SIMULACRO: "Simulacro",
+  TUTORIA_DUDAS: "Tutoría / dudas",
   TUTORIA_INDIVIDUAL: "Tutoría individual",
 };
 
@@ -202,7 +207,8 @@ export function CalendarPage({ onOpenSession, onOpenTutorial }: Props) {
           body: JSON.stringify({
             asignaturaId: Number(data.get("subjectId")),
             unidadId: null,
-            tipo: data.get("sessionType") || "CLASE",
+            tipo: data.get("sessionCategory") === "TUTORIA_DUDAS" ? "TUTORIA_GRUPAL" : "CLASE",
+            categoria: data.get("sessionCategory") || "TEORICA",
             titulo: data.get("title"),
             inicio: start,
             fin: end,
@@ -297,7 +303,7 @@ export function CalendarPage({ onOpenSession, onOpenTutorial }: Props) {
                       type="button"
                       className={`calendar-event type-${calendarEvent.type.toLowerCase().replaceAll("_", "-")}${calendarEvent.status === "CANCELADA" ? " cancelled" : ""}`}
                       key={calendarEvent.id}
-                      title={`${formatTime(calendarEvent.start)} · ${calendarEvent.title} · ${calendarEvent.subtitle}`}
+                      title={`${formatTime(calendarEvent.start)} · ${calendarEvent.title} · ${calendarEvent.subtitle}${calendarEvent.notes ? ` · ${calendarEvent.notes}` : ""}`}
                       onClick={(clickEvent) => { clickEvent.stopPropagation(); openEvent(calendarEvent); }}
                     >
                       <span className="calendar-event-time">{formatTime(calendarEvent.start)}</span>
@@ -345,10 +351,14 @@ export function CalendarPage({ onOpenSession, onOpenTutorial }: Props) {
                     {activeSubjects.map((subject) => <option value={subject.id} key={subject.id}>{subject.nombre}{subject.grupo ? ` · ${subject.grupo}` : ""}</option>)}
                   </select>
                 </label>
-                <label>Tipo
-                  <select name="sessionType" defaultValue="CLASE">
-                    <option value="CLASE">Clase</option>
-                    <option value="TUTORIA_GRUPAL">Tutoría grupal</option>
+                <label>Categoría
+                  <select name="sessionCategory" defaultValue="TEORICA">
+                    <option value="TEORICA">Sesión teórica</option>
+                    <option value="PRESENTACION">Presentación</option>
+                    <option value="REPASO">Repaso</option>
+                    <option value="REPASO_GENERAL">Repaso general</option>
+                    <option value="SIMULACRO">Simulacro</option>
+                    <option value="TUTORIA_DUDAS">Tutoría / dudas</option>
                   </select>
                 </label>
                 <label>Hora inicio<input name="startTime" type="time" required /></label>
@@ -390,7 +400,7 @@ export function CalendarPage({ onOpenSession, onOpenTutorial }: Props) {
             {selectedEvents.map((calendarEvent) => (
               <button className={`calendar-agenda-item type-${calendarEvent.type.toLowerCase().replaceAll("_", "-")}`} type="button" key={calendarEvent.id} onClick={() => openEvent(calendarEvent)}>
                 <span className="calendar-agenda-time">{formatTime(calendarEvent.start)}{calendarEvent.end ? ` – ${formatTime(calendarEvent.end)}` : ""}</span>
-                <span className="calendar-agenda-main"><strong>{calendarEvent.title}</strong><small>{calendarEvent.subtitle}</small></span>
+                <span className="calendar-agenda-main"><strong>{calendarEvent.title}</strong><small>{calendarEvent.subtitle}</small>{calendarEvent.notes && <small className="calendar-agenda-note">{calendarEvent.notes}</small>}</span>
                 <span className="calendar-agenda-type">{TYPE_LABELS[calendarEvent.type]}</span>
               </button>
             ))}

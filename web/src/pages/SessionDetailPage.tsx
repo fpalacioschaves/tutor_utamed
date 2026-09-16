@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { AttendanceState, SessionDetail } from "../types";
+import type { AttendanceState, SessionCategory, SessionDetail } from "../types";
 
 type Props = {
   sessionId: number;
@@ -34,6 +34,15 @@ const SESSION_STATUS_LABELS: Record<SessionDetail["estado"], string> = {
   PROGRAMADA: "Programada",
   REALIZADA: "Realizada",
   CANCELADA: "Cancelada",
+};
+
+const SESSION_CATEGORY_LABELS: Record<SessionCategory, string> = {
+  PRESENTACION: "PRESENTACIÓN",
+  TEORICA: "SESIÓN TEÓRICA",
+  REPASO: "REPASO",
+  REPASO_GENERAL: "REPASO GENERAL",
+  SIMULACRO: "SIMULACRO",
+  TUTORIA_DUDAS: "TUTORÍA / DUDAS",
 };
 
 export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
@@ -213,11 +222,12 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
         <div>
           <button className="back-button" type="button" onClick={handleBack}>← Sesiones</button>
           <div className="entity-title-line">
-            <p className="eyebrow">{session.tipo === "CLASE" ? "CLASE" : "TUTORÍA GRUPAL"}</p>
+            <p className="eyebrow">{SESSION_CATEGORY_LABELS[session.categoria]}</p>
             <span className={`status-pill session-state-${session.estado.toLowerCase()}`}>{SESSION_STATUS_LABELS[session.estado]}</span>
           </div>
           <h2>{session.asignatura.nombre}</h2>
           <p>{new Intl.DateTimeFormat("es-ES", { dateStyle: "full", timeStyle: "short" }).format(new Date(session.inicio))}</p>
+          {session.titulo && <p className="session-topic"><strong>{session.titulo}</strong></p>}
           {session.unidad && <p className="session-topic">Unidad: U{session.unidad.orden} · {session.unidad.titulo}</p>}
           {session.tema && <p className="session-topic">Tema: {session.tema}</p>}
         </div>
@@ -234,6 +244,10 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
           <button className="primary" type="button" disabled={saving || deleting || !dirty || cancelled} onClick={() => void save()}>{saving ? "Guardando…" : "Guardar cambios"}</button>
         </div>
       </header>
+
+      {session.observacionesGenerales && (
+        <div className="notice-banner info session-general-notes" role="status">{session.observacionesGenerales}</div>
+      )}
 
       {cancelled && (
         <div className="notice-banner warning" role="status">
