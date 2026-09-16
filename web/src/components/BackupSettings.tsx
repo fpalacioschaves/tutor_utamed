@@ -5,7 +5,7 @@ type BackupInfo = {
   createdAt: string;
   relativePath: string;
   sizeBytes: number;
-  kind?: "MANUAL" | "PRE_RESTORE" | "PRE_CLEANUP" | "PRE_IMPORT";
+  kind?: "MANUAL" | "PRE_RESTORE" | "PRE_CLEANUP" | "PRE_IMPORT" | "PRE_UNIT_ALLOCATION";
   includes: {
     database: boolean;
     localContent: boolean;
@@ -157,6 +157,7 @@ export function BackupSettings() {
                   {backup.kind === "PRE_RESTORE" && <span className="tag backup-safety-tag">Automática antes de restaurar</span>}
                   {backup.kind === "PRE_CLEANUP" && <span className="tag backup-safety-tag">Automática antes de limpiar</span>}
                   {backup.kind === "PRE_IMPORT" && <span className="tag backup-safety-tag">Automática antes de importar</span>}
+                  {backup.kind === "PRE_UNIT_ALLOCATION" && <span className="tag backup-safety-tag">Automática antes de asignar unidades</span>}
                   {backup.includes.database && <span className="tag">Base de datos</span>}
                   {backup.includes.localContent && <span className="tag">Materiales</span>}
                   {backup.includes.localData && <span className="tag">Datos locales</span>}
