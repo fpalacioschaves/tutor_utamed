@@ -4,12 +4,13 @@ type AgendaEvent = {
   id: string;
   entityId: number;
   source: "SESSION" | "TUTORIAL";
-  type: "CLASE" | "TUTORIA_GRUPAL" | "TUTORIA_INDIVIDUAL";
+  type: "PRESENTACION" | "TEORICA" | "REPASO" | "REPASO_GENERAL" | "SIMULACRO" | "TUTORIA_DUDAS" | "TUTORIA_INDIVIDUAL";
   title: string;
   subtitle: string;
   start: string;
   end: string | null;
   status: string;
+  notes: string | null;
 };
 
 type AgendaRange = "TODAY" | "TOMORROW" | "WEEK";
@@ -51,9 +52,13 @@ function formatDay(value: string) {
 }
 
 function typeLabel(type: AgendaEvent["type"]) {
-  if (type === "TUTORIA_GRUPAL") return "Tutoría grupal";
+  if (type === "PRESENTACION") return "Presentación";
+  if (type === "REPASO") return "Repaso";
+  if (type === "REPASO_GENERAL") return "Repaso general";
+  if (type === "SIMULACRO") return "Simulacro";
+  if (type === "TUTORIA_DUDAS") return "Tutoría / dudas";
   if (type === "TUTORIA_INDIVIDUAL") return "Tutoría individual";
-  return "Clase";
+  return "Sesión teórica";
 }
 
 export function DashboardAgendaPanel({ onOpenSession, onOpenTutorials, onOpenCalendar }: Props) {
@@ -144,6 +149,7 @@ export function DashboardAgendaPanel({ onOpenSession, onOpenTutorials, onOpenCal
                 <span className="tag">{typeLabel(event.type)}</span>
                 <strong>{event.title}</strong>
                 <small>{event.subtitle}</small>
+                {event.notes && <small className="dashboard-agenda-note">{event.notes}</small>}
               </div>
               <span className="dashboard-agenda-action">Abrir</span>
             </button>
