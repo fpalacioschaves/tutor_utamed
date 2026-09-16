@@ -168,11 +168,12 @@ export function SessionsPage({ onOpenSession }: Props) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    const categoria = String(form.get("categoria") || "TEORICA") as SessionCategory;
     const payload = {
       asignaturaId: Number(selectedSubjectId),
       unidadId: selectedUnitId === "" ? null : Number(selectedUnitId),
-      tipo: form.get("tipo"),
-      categoria: form.get("categoria"),
+      tipo: categoria === "TUTORIA_DUDAS" ? "TUTORIA_GRUPAL" : "CLASE",
+      categoria,
       titulo: form.get("titulo"),
       inicio: form.get("inicio"),
       fin: form.get("fin"),
@@ -284,13 +285,6 @@ export function SessionsPage({ onOpenSession }: Props) {
               </select>
             </label>
 
-            <label>
-              Formato
-              <select name="tipo" defaultValue={editing?.tipo ?? "CLASE"}>
-                <option value="CLASE">Sesión de clase</option>
-                <option value="TUTORIA_GRUPAL">Tutoría grupal</option>
-              </select>
-            </label>
 
             <label>
               Estado
