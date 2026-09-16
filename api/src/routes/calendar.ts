@@ -47,7 +47,7 @@ calendarRouter.get("/", async (req, res, next) => {
         id: `session-${session.id}`,
         entityId: session.id,
         source: "SESSION" as const,
-        type: session.tipo,
+        type: session.categoria || (session.tipo === "TUTORIA_GRUPAL" ? "TUTORIA_DUDAS" : "TEORICA"),
         title: session.titulo
           || (session.tipo === "TUTORIA_GRUPAL" ? `Tutoría grupal · ${session.asignatura.nombre}` : session.unidad?.titulo || session.asignatura.nombre),
         subtitle: [
@@ -58,6 +58,7 @@ calendarRouter.get("/", async (req, res, next) => {
         start: session.inicio.toISOString(),
         end: session.fin.toISOString(),
         status: session.estado,
+        notes: session.observacionesGenerales,
         subject: session.asignatura,
         unit: session.unidad,
         student: null,
@@ -76,6 +77,7 @@ calendarRouter.get("/", async (req, res, next) => {
         start: tutorial.inicio!.toISOString(),
         end: tutorial.fin?.toISOString() ?? null,
         status: tutorial.estado,
+        notes: tutorial.observaciones,
         subject: tutorial.asignatura,
         unit: null,
         student: tutorial.alumno,
