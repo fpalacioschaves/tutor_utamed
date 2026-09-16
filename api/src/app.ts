@@ -21,6 +21,7 @@ import { unitAiRouter } from "./routes/unit-ai";
 import { materialsRouter } from "./routes/materials";
 import { calendarRouter } from "./routes/calendar";
 import { backupsRouter } from "./routes/backups";
+import { maintenanceRouter } from "./routes/maintenance";
 
 export const app = express();
 
@@ -28,7 +29,7 @@ app.use(cors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:5173" }));
 app.use(express.json({ limit: "36mb" }));
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, service: "Tutor UTAMED API", version: "0.19.1" });
+  res.json({ ok: true, service: "Tutor UTAMED API", version: "0.20.0" });
 });
 
 app.use("/api/courses", coursesRouter);
@@ -39,6 +40,7 @@ app.use("/api/subjects", subjectsRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/calendar", calendarRouter);
 app.use("/api/backups", backupsRouter);
+app.use("/api/maintenance", maintenanceRouter);
 app.use("/api/sessions", sessionsRouter);
 app.use("/api/activities", activitiesRouter);
 app.use("/api/tutorials", tutorialsRouter);
