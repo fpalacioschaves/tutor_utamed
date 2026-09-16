@@ -4,12 +4,16 @@ import { createBackup } from "./backups";
 
 export const academicScheduleImportRouter = Router();
 
+type SessionCategory = "PRESENTACION" | "TEORICA" | "REPASO" | "REPASO_GENERAL" | "SIMULACRO" | "TUTORIA_DUDAS";
+
 type PlanItem = {
   week: number;
   date: string;
   title: string;
+  category: SessionCategory;
   type?: "CLASE" | "TUTORIA_GRUPAL";
-  notes?: string;
+  milestone?: string;
+  observations?: string;
 };
 
 type SubjectSpec = {
@@ -48,38 +52,38 @@ const SUBJECTS: SubjectSpec[] = [
 ];
 
 const PLAN: PlanItem[] = [
-  { week: 4, date: "2026-09-23", title: "Presentación de módulos y equipo directivo", notes: "Comienzo de clases síncronas · Envío de claves de acceso al aula virtual." },
-  { week: 5, date: "2026-09-30", title: "Sesión Teórica 1", notes: "Publicación del Foro de Conocimientos Previos." },
-  { week: 6, date: "2026-10-07", title: "Sesión Teórica 2", notes: "08/10: fecha límite de matriculación." },
-  { week: 7, date: "2026-10-14", title: "Sesión Teórica 3", notes: "12/10: Fiesta Nacional." },
-  { week: 8, date: "2026-10-21", title: "Sesión Teórica 4" },
-  { week: 9, date: "2026-10-28", title: "Sesión Teórica 5", notes: "Apertura del Cuestionario PRL." },
-  { week: 10, date: "2026-11-04", title: "Sesión de Repaso", notes: "Apertura del Cuestionario Evaluable 1 · 02/11: festivo de Todos los Santos." },
-  { week: 11, date: "2026-11-11", title: "Sesión Teórica 6", notes: "09/11: festivo local de Madrid." },
-  { week: 12, date: "2026-11-18", title: "Sesión Teórica 7", notes: "Cierre del Cuestionario PRL." },
-  { week: 13, date: "2026-11-25", title: "Sesión Teórica 8", notes: "Publicación del Trabajo Enfoque Evaluable." },
-  { week: 14, date: "2026-12-02", title: "Sesión Teórica 9" },
-  { week: 15, date: "2026-12-09", title: "Sesión Teórica 10", notes: "Apertura PRL para suspensos/no presentados · 07-08/12: Constitución/Inmaculada." },
-  { week: 16, date: "2026-12-16", title: "Sesión de Repaso", notes: "Apertura del Cuestionario Evaluable 2." },
-  { week: 20, date: "2027-01-13", title: "Sesión Teórica 11", notes: "Reanudación de clases tras Navidad." },
-  { week: 21, date: "2027-01-20", title: "Sesión Teórica 12", notes: "Fecha límite de entrega del Foro Evaluable." },
-  { week: 22, date: "2027-01-27", title: "Sesión Teórica 13", notes: "Mitad del temario impartido · Apertura de la segunda mitad del temario al alumnado." },
-  { week: 23, date: "2027-02-03", title: "Sesión Teórica 14", notes: "Publicación de nota y feedback del Foro Evaluable." },
-  { week: 24, date: "2027-02-10", title: "Sesión de Repaso", notes: "Apertura del Cuestionario Evaluable 3 · 12-15/02: días no lectivos." },
-  { week: 25, date: "2027-02-17", title: "Sesión Teórica 15", notes: "15/02: día no lectivo." },
-  { week: 26, date: "2027-02-24", title: "Sesión Teórica 16", notes: "Límite de entrega del Trabajo Enfoque." },
-  { week: 27, date: "2027-03-03", title: "Sesión Teórica 17" },
-  { week: 28, date: "2027-03-10", title: "Sesión Teórica 18" },
-  { week: 29, date: "2027-03-17", title: "Sesión de Repaso", notes: "Apertura del Cuestionario Evaluable 4 · 19/03: día no lectivo." },
-  { week: 31, date: "2027-03-31", title: "Sesión Teórica 19", notes: "29/03: día no lectivo." },
-  { week: 32, date: "2027-04-07", title: "Sesión Teórica 20" },
-  { week: 33, date: "2027-04-14", title: "Sesión Teórica 21", notes: "Publicación de nota del Trabajo Enfoque." },
-  { week: 34, date: "2027-04-21", title: "Sesión Teórica 22" },
-  { week: 35, date: "2027-04-28", title: "Sesión de Repaso", notes: "Apertura del Cuestionario Evaluable 5." },
-  { week: 36, date: "2027-05-05", title: "Repaso General" },
-  { week: 37, date: "2027-05-12", title: "Simulacro de Examen", notes: "Fecha límite de entrega ordinaria de cuestionarios." },
-  { week: 38, date: "2027-05-19", title: "Tutoría grupal / Dudas de examen", type: "TUTORIA_GRUPAL", notes: "22-23/05: exámenes ordinarios de 1.º curso." },
-];
+  { week: 4, date: "2026-09-23", title: "Sesión 1: Presentación Módulos y Eq. Directivo", category: "PRESENTACION", milestone: "Envío claves acceso aula virtual", observations: "Comienzo clases síncronas" },
+  { week: 5, date: "2026-09-30", title: "Sesión Teórica 1", category: "TEORICA", milestone: "Publicación Foro Conocimientos Previos" },
+  { week: 6, date: "2026-10-07", title: "Sesión Teórica 2", category: "TEORICA", observations: "08/10: Fecha límite matriculación" },
+  { week: 7, date: "2026-10-14", title: "Sesión Teórica 3", category: "TEORICA", observations: "12/10: Fiesta Nacional" },
+  { week: 8, date: "2026-10-21", title: "Sesión Teórica 4", category: "TEORICA" },
+  { week: 9, date: "2026-10-28", title: "Sesión Teórica 5", category: "TEORICA", milestone: "Apertura Cuestionario PRL" },
+  { week: 10, date: "2026-11-04", title: "Sesión: Repaso", category: "REPASO", milestone: "Apertura Cuestionario Evaluable 1", observations: "02/11: Festivo (Todos los Santos)" },
+  { week: 11, date: "2026-11-11", title: "Sesión Teórica 6", category: "TEORICA", observations: "09/11: Festivo local Madrid" },
+  { week: 12, date: "2026-11-18", title: "Sesión Teórica 7", category: "TEORICA", milestone: "Cierre Cuestionario PRL" },
+  { week: 13, date: "2026-11-25", title: "Sesión Teórica 8", category: "TEORICA", milestone: "Publicación Trabajo Enfoque Evaluable" },
+  { week: 14, date: "2026-12-02", title: "Sesión Teórica 9", category: "TEORICA" },
+  { week: 15, date: "2026-12-09", title: "Sesión Teórica 10", category: "TEORICA", milestone: "Apertura PRL (Suspensos / No pres.)", observations: "07-08/12: Festivo Constitución / Inmaculada" },
+  { week: 16, date: "2026-12-16", title: "Sesión Repaso", category: "REPASO", milestone: "Apertura Cuestionario Evaluable 2" },
+  { week: 20, date: "2027-01-13", title: "Sesión Teórica 11", category: "TEORICA", milestone: "Reanudación de clases" },
+  { week: 21, date: "2027-01-20", title: "Sesión Teórica 12", category: "TEORICA", milestone: "Fecha límite entrega Foro Evaluable" },
+  { week: 22, date: "2027-01-27", title: "Sesión Teórica 13", category: "TEORICA", milestone: "Apertura para el alumno de la 2ª mitad temario", observations: "Hito: Se ha impartido la mitad del temario" },
+  { week: 23, date: "2027-02-03", title: "Sesión Teórica 14", category: "TEORICA", milestone: "Publicación nota y feedback Foro Evaluable" },
+  { week: 24, date: "2027-02-10", title: "Sesión 18: Repaso", category: "REPASO", milestone: "Apertura Cuestionario Evaluable 3", observations: "12-15/02: Días no lectivos" },
+  { week: 25, date: "2027-02-17", title: "Sesión Teórica 15", category: "TEORICA", observations: "15/02: Día no lectivo" },
+  { week: 26, date: "2027-02-24", title: "Sesión Teórica 16", category: "TEORICA", milestone: "LÍMITE ENTREGA Trabajo Enfoque", observations: "Límite entrega Trabajo" },
+  { week: 27, date: "2027-03-03", title: "Sesión Teórica 17", category: "TEORICA" },
+  { week: 28, date: "2027-03-10", title: "Sesión Teórica 18", category: "TEORICA" },
+  { week: 29, date: "2027-03-17", title: "Sesión 23: Repaso", category: "REPASO", milestone: "Apertura Cuestionario Evaluable 4", observations: "19/03: Día no lectivo" },
+  { week: 31, date: "2027-03-31", title: "Sesión Teórica 19", category: "TEORICA", observations: "29/03: Día no lectivo" },
+  { week: 32, date: "2027-04-07", title: "Sesión Teórica 20", category: "TEORICA" },
+  { week: 33, date: "2027-04-14", title: "Sesión Teórica 21", category: "TEORICA", milestone: "Publicación nota Trabajo Enfoque" },
+  { week: 34, date: "2027-04-21", title: "Sesión Teórica 22", category: "TEORICA" },
+  { week: 35, date: "2027-04-28", title: "Sesión 28: Repaso", category: "REPASO", milestone: "Apertura Cuestionario Evaluable 5" },
+  { week: 36, date: "2027-05-05", title: "Sesión 29: Repaso General", category: "REPASO_GENERAL" },
+  { week: 37, date: "2027-05-12", title: "Sesión 30: Simulacro Examen", category: "SIMULACRO", milestone: "FECHA LÍMITE ENTREGA ORDINARIA CUESTIONARIOS", observations: "Cierre cuestionarios evaluables ordinaria" },
+  { week: 38, date: "2027-05-19", title: "Sesión 31: Tutorías / Dudas Examen", category: "TUTORIA_DUDAS", type: "TUTORIA_GRUPAL", observations: "22 y 23/05: EXÁMENES ORDINARIOS 1º CURSO" },
+]
 
 const OMITTED = [
   "23/12/2026: no se crea sesión porque las vacaciones de Navidad comienzan ese día.",
@@ -163,7 +167,7 @@ async function getPreviewData() {
   const refs = PLAN.flatMap((plan) => SUBJECTS.map((subject) => externalReference(subject.code, plan.date)));
   const existing = await prisma.sesion.findMany({
     where: { referenciaExterna: { in: refs } },
-    select: { referenciaExterna: true },
+    select: { id: true, referenciaExterna: true },
   });
   const existingRefs = new Set(existing.map((item) => item.referenciaExterna).filter(Boolean));
 
@@ -174,6 +178,7 @@ async function getPreviewData() {
     totalPlanned: PLAN.length * SUBJECTS.length,
     existing: existingRefs.size,
     toCreate: (PLAN.length * SUBJECTS.length) - existingRefs.size,
+    toSynchronize: existingRefs.size,
     firstDate: PLAN[0].date,
     lastDate: PLAN[PLAN.length - 1].date,
     subjects: resolved.map(({ spec, subject, alternatives }) => ({
@@ -203,20 +208,27 @@ academicScheduleImportRouter.post("/import", async (_req, res, next) => {
     const refs = PLAN.flatMap((plan) => SUBJECTS.map((subject) => externalReference(subject.code, plan.date)));
     const existing = await prisma.sesion.findMany({
       where: { referenciaExterna: { in: refs } },
-      select: { referenciaExterna: true },
+      select: { id: true, referenciaExterna: true },
     });
-    const existingRefs = new Set(existing.map((item) => item.referenciaExterna).filter(Boolean));
+    const existingByRef = new Map(existing.map((item) => [item.referenciaExterna, item]));
 
     const rows = PLAN.flatMap((plan) =>
       SUBJECTS.map((spec) => {
         const subject = subjectByCode.get(spec.code)!;
         const ref = externalReference(spec.code, plan.date);
+        const notes = [
+          plan.milestone ? `Aperturas / Entregas / Cierres: ${plan.milestone}` : null,
+          plan.observations ? `Observaciones / Festivos: ${plan.observations}` : null,
+        ].filter(Boolean).join("\n");
+
         return {
           ref,
+          existing: existingByRef.get(ref) ?? null,
           data: {
             asignaturaId: subject.id,
             unidadId: null,
-            tipo: plan.type ?? "CLASE",
+            tipo: plan.type ?? "CLASE" as "CLASE" | "TUTORIA_GRUPAL",
+            categoria: plan.category,
             titulo: plan.title,
             tema: null,
             inicio: madridDateTime(plan.date, spec.start),
@@ -224,24 +236,27 @@ academicScheduleImportRouter.post("/import", async (_req, res, next) => {
             estado: "PROGRAMADA" as const,
             origen: "IMPORTADA" as const,
             referenciaExterna: ref,
-            observacionesGenerales: [
-              `Temporalización FP Madrid 2026/2027 · Semana ${plan.week} · 1.º DAM/DAW (grupo único).`,
-              plan.notes || null,
-            ].filter(Boolean).join(" "),
+            observacionesGenerales: notes || null,
           },
         };
       }),
-    ).filter((row) => !existingRefs.has(row.ref));
+    );
+
+    const toCreate = rows.filter((row) => !row.existing);
+    const toUpdate = rows.filter((row) => row.existing);
 
     let safetyBackup = null;
     if (rows.length > 0) {
       safetyBackup = await createBackup("PRE_IMPORT");
-      await prisma.$transaction(rows.map((row) => prisma.sesion.create({ data: row.data })));
+      await prisma.$transaction([
+        ...toUpdate.map((row) => prisma.sesion.update({ where: { id: row.existing!.id }, data: row.data })),
+        ...toCreate.map((row) => prisma.sesion.create({ data: row.data })),
+      ]);
     }
 
-    res.status(rows.length > 0 ? 201 : 200).json({
-      created: rows.length,
-      skippedExisting: existingRefs.size,
+    res.status(toCreate.length > 0 ? 201 : 200).json({
+      created: toCreate.length,
+      updated: toUpdate.length,
       totalPlanned: refs.length,
       safetyBackup,
       preview: await getPreviewData(),
