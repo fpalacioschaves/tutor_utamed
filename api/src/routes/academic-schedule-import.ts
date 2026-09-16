@@ -58,7 +58,7 @@ const PLAN: PlanItem[] = [
   { week: 7, date: "2026-10-14", title: "Sesión Teórica 3", category: "TEORICA", observations: "12/10: Fiesta Nacional" },
   { week: 8, date: "2026-10-21", title: "Sesión Teórica 4", category: "TEORICA" },
   { week: 9, date: "2026-10-28", title: "Sesión Teórica 5", category: "TEORICA", milestone: "Apertura Cuestionario PRL" },
-  { week: 10, date: "2026-11-04", title: "Sesión: Repaso", category: "REPASO", milestone: "Apertura Cuestionario Evaluable 1", observations: "02/11: Festivo (Todos los Santos)" },
+  { week: 10, date: "2026-11-04", title: "Sesión : Repaso", category: "REPASO", milestone: "Apertura Cuestionario Evaluable 1", observations: "02/11: Festivo (Todos los Santos)" },
   { week: 11, date: "2026-11-11", title: "Sesión Teórica 6", category: "TEORICA", observations: "09/11: Festivo local Madrid" },
   { week: 12, date: "2026-11-18", title: "Sesión Teórica 7", category: "TEORICA", milestone: "Cierre Cuestionario PRL" },
   { week: 13, date: "2026-11-25", title: "Sesión Teórica 8", category: "TEORICA", milestone: "Publicación Trabajo Enfoque Evaluable" },
@@ -83,7 +83,7 @@ const PLAN: PlanItem[] = [
   { week: 36, date: "2027-05-05", title: "Sesión 29: Repaso General", category: "REPASO_GENERAL" },
   { week: 37, date: "2027-05-12", title: "Sesión 30: Simulacro Examen", category: "SIMULACRO", milestone: "FECHA LÍMITE ENTREGA ORDINARIA CUESTIONARIOS", observations: "Cierre cuestionarios evaluables ordinaria" },
   { week: 38, date: "2027-05-19", title: "Sesión 31: Tutorías / Dudas Examen", category: "TUTORIA_DUDAS", type: "TUTORIA_GRUPAL", observations: "22 y 23/05: EXÁMENES ORDINARIOS 1º CURSO" },
-]
+];
 
 const OMITTED = [
   "23/12/2026: no se crea sesión porque las vacaciones de Navidad comienzan ese día.",
@@ -221,22 +221,27 @@ academicScheduleImportRouter.post("/import", async (_req, res, next) => {
           plan.observations ? `Observaciones / Festivos: ${plan.observations}` : null,
         ].filter(Boolean).join("\n");
 
+        const sharedData = {
+          asignaturaId: subject.id,
+          tipo: (plan.type ?? "CLASE") as "CLASE" | "TUTORIA_GRUPAL",
+          categoria: plan.category,
+          titulo: plan.title,
+          inicio: madridDateTime(plan.date, spec.start),
+          fin: madridDateTime(plan.date, spec.end),
+          referenciaExterna: ref,
+          observacionesGenerales: notes || null,
+        };
+
         return {
           ref,
           existing: existingByRef.get(ref) ?? null,
-          data: {
-            asignaturaId: subject.id,
+          updateData: sharedData,
+          createData: {
+            ...sharedData,
             unidadId: null,
-            tipo: plan.type ?? "CLASE" as "CLASE" | "TUTORIA_GRUPAL",
-            categoria: plan.category,
-            titulo: plan.title,
             tema: null,
-            inicio: madridDateTime(plan.date, spec.start),
-            fin: madridDateTime(plan.date, spec.end),
             estado: "PROGRAMADA" as const,
             origen: "IMPORTADA" as const,
-            referenciaExterna: ref,
-            observacionesGenerales: notes || null,
           },
         };
       }),
@@ -249,8 +254,8 @@ academicScheduleImportRouter.post("/import", async (_req, res, next) => {
     if (rows.length > 0) {
       safetyBackup = await createBackup("PRE_IMPORT");
       await prisma.$transaction([
-        ...toUpdate.map((row) => prisma.sesion.update({ where: { id: row.existing!.id }, data: row.data })),
-        ...toCreate.map((row) => prisma.sesion.create({ data: row.data })),
+        ...toUpdate.map((row) => prisma.sesion.update({ where: { id: row.existing!.id }, data: row.updateData })),
+        ...toCreate.map((row) => prisma.sesion.create({ data: row.createData })),
       ]);
     }
 
