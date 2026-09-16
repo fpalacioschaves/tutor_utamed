@@ -216,7 +216,7 @@ academicScheduleImportRouter.post("/import", async (_req, res, next) => {
           data: {
             asignaturaId: subject.id,
             unidadId: null,
-            tipo: plan.type ?? "CLASE" as "CLASE" | "TUTORIA_GRUPAL",
+            tipo: plan.type ?? "CLASE",
             titulo: plan.title,
             tema: null,
             inicio: madridDateTime(plan.date, spec.start),
