@@ -69,6 +69,10 @@ function formatMonth(date: Date) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+function monthInputValue(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function formatSelectedDate(date: Date) {
   const text = new Intl.DateTimeFormat("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(date);
   return text.charAt(0).toUpperCase() + text.slice(1);
@@ -143,6 +147,18 @@ export function CalendarPage({ onOpenSession, onOpenTutorial }: Props) {
     const today = new Date();
     setMonth(startOfMonth(today));
     setSelectedDate(today);
+    setQuickMode(null);
+    setQuickMessage("");
+  }
+
+  function goToMonth(value: string) {
+    const [yearText, monthText] = value.split("-");
+    const year = Number(yearText);
+    const monthIndex = Number(monthText) - 1;
+    if (!Number.isInteger(year) || monthIndex < 0 || monthIndex > 11) return;
+    const next = new Date(year, monthIndex, 1);
+    setMonth(next);
+    setSelectedDate(next);
     setQuickMode(null);
     setQuickMessage("");
   }
@@ -261,7 +277,18 @@ export function CalendarPage({ onOpenSession, onOpenTutorial }: Props) {
             <button className="secondary compact-button" type="button" onClick={goToday}>Hoy</button>
             <button className="secondary compact-button" type="button" onClick={() => moveMonth(1)} aria-label="Mes siguiente">›</button>
           </div>
-          <h3>{formatMonth(month)}</h3>
+          <div className="calendar-month-control">
+            <h3>{formatMonth(month)}</h3>
+            <label>
+              <span>Ir al mes</span>
+              <input
+                type="month"
+                value={monthInputValue(month)}
+                onChange={(event) => goToMonth(event.target.value)}
+                aria-label="Ir directamente a un mes"
+              />
+            </label>
+          </div>
           <div className="calendar-legend" aria-label="Tipos de evento">
             {(Object.keys(TYPE_LABELS) as CalendarEventType[]).map((type) => (
               <span className={`calendar-legend-item type-${type.toLowerCase().replaceAll("_", "-")}`} key={type}>
