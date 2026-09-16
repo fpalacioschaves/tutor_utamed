@@ -10,7 +10,6 @@ async function getCleanupImpact() {
     enrollments,
     sessions,
     attendanceRecords,
-    activities,
     submissions,
     tutorials,
     followUps,
@@ -21,7 +20,6 @@ async function getCleanupImpact() {
     prisma.matricula.count(),
     prisma.sesion.count(),
     prisma.registroSesion.count(),
-    prisma.actividad.count(),
     prisma.entrega.count(),
     prisma.tutoriaIndividual.count(),
     prisma.seguimiento.count(),
@@ -34,7 +32,6 @@ async function getCleanupImpact() {
     enrollments,
     sessions,
     attendanceRecords,
-    activities,
     submissions,
     tutorials,
     followUps,
@@ -45,7 +42,6 @@ async function getCleanupImpact() {
       enrollments +
       sessions +
       attendanceRecords +
-      activities +
       submissions +
       tutorials +
       followUps +
@@ -57,11 +53,12 @@ async function getCleanupImpact() {
 maintenanceRouter.get("/cleanup-preview", async (_req, res, next) => {
   try {
     const impact = await getCleanupImpact();
-    const [courses, groups, subjects, units] = await Promise.all([
+    const [courses, groups, subjects, units, activities] = await Promise.all([
       prisma.cursoAcademico.count(),
       prisma.grupo.count(),
       prisma.asignatura.count(),
       prisma.unidad.count(),
+      prisma.actividad.count(),
     ]);
 
     res.json({
@@ -71,6 +68,7 @@ maintenanceRouter.get("/cleanup-preview", async (_req, res, next) => {
         groups,
         subjects,
         units,
+        activities,
         localTeachingMaterials: true,
         settings: true,
       },
@@ -93,7 +91,6 @@ maintenanceRouter.post("/cleanup-demo-data", async (_req, res, next) => {
       prisma.incidencia.deleteMany(),
       prisma.comunicacion.deleteMany(),
       prisma.matricula.deleteMany(),
-      prisma.actividad.deleteMany(),
       prisma.sesion.deleteMany(),
       prisma.alumno.deleteMany(),
     ]);
@@ -107,10 +104,11 @@ maintenanceRouter.post("/cleanup-demo-data", async (_req, res, next) => {
         "Grupos",
         "Asignaturas",
         "Unidades y contenidos",
+        "Actividades",
         "Documentos y materiales docentes locales",
         "Configuración de la aplicación",
       ],
-      message: "Datos de prueba eliminados. La estructura académica y los materiales docentes se han conservado.",
+      message: "Sesiones y alumnos eliminados. Las asignaturas, unidades, actividades y materiales docentes se han conservado.",
     });
   } catch (error) {
     next(error);
