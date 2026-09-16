@@ -207,7 +207,8 @@ export function CalendarPage({ onOpenSession, onOpenTutorial }: Props) {
           body: JSON.stringify({
             asignaturaId: Number(data.get("subjectId")),
             unidadId: null,
-            tipo: data.get("sessionType") || "CLASE",
+            tipo: data.get("sessionCategory") === "TUTORIA_DUDAS" ? "TUTORIA_GRUPAL" : "CLASE",
+            categoria: data.get("sessionCategory") || "TEORICA",
             titulo: data.get("title"),
             inicio: start,
             fin: end,
@@ -350,10 +351,14 @@ export function CalendarPage({ onOpenSession, onOpenTutorial }: Props) {
                     {activeSubjects.map((subject) => <option value={subject.id} key={subject.id}>{subject.nombre}{subject.grupo ? ` · ${subject.grupo}` : ""}</option>)}
                   </select>
                 </label>
-                <label>Tipo
-                  <select name="sessionType" defaultValue="CLASE">
-                    <option value="CLASE">Clase</option>
-                    <option value="TUTORIA_GRUPAL">Tutoría grupal</option>
+                <label>Categoría
+                  <select name="sessionCategory" defaultValue="TEORICA">
+                    <option value="TEORICA">Sesión teórica</option>
+                    <option value="PRESENTACION">Presentación</option>
+                    <option value="REPASO">Repaso</option>
+                    <option value="REPASO_GENERAL">Repaso general</option>
+                    <option value="SIMULACRO">Simulacro</option>
+                    <option value="TUTORIA_DUDAS">Tutoría / dudas</option>
                   </select>
                 </label>
                 <label>Hora inicio<input name="startTime" type="time" required /></label>
