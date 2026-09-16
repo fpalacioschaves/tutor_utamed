@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import type { Session, Subject, Unit } from "../types";
+import type { Session, SessionCategory, Subject, Unit } from "../types";
 
 type Props = {
   onOpenSession: (id: number) => void;
@@ -12,6 +12,15 @@ const SESSION_STATUS_LABELS: Record<Session["estado"], string> = {
   PROGRAMADA: "Programada",
   REALIZADA: "Realizada",
   CANCELADA: "Cancelada",
+};
+
+const SESSION_CATEGORY_LABELS: Record<SessionCategory, string> = {
+  PRESENTACION: "Presentación",
+  TEORICA: "Sesión teórica",
+  REPASO: "Repaso",
+  REPASO_GENERAL: "Repaso general",
+  SIMULACRO: "Simulacro",
+  TUTORIA_DUDAS: "Tutoría / dudas",
 };
 
 function formatTime(value: string) {
@@ -43,7 +52,7 @@ export function SessionsPage({ onOpenSession }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [filterSubjectId, setFilterSubjectId] = useState<number | "">("");
-  const [filterType, setFilterType] = useState<"" | Session["tipo"]>("");
+  const [filterType, setFilterType] = useState<"" | SessionCategory>("");
   const [filterState, setFilterState] = useState<"" | Session["estado"]>("");
   const [period, setPeriod] = useState<PeriodFilter>("ALL");
   const formPanelRef = useRef<HTMLElement | null>(null);
@@ -101,7 +110,7 @@ export function SessionsPage({ onOpenSession }: Props) {
     return sessions
       .filter((session) => {
         if (filterSubjectId !== "" && session.asignatura.id !== filterSubjectId) return false;
-        if (filterType && session.tipo !== filterType) return false;
+        if (filterType && session.categoria !== filterType) return false;
         if (filterState && session.estado !== filterState) return false;
 
         const start = new Date(session.inicio).getTime();
@@ -114,7 +123,7 @@ export function SessionsPage({ onOpenSession }: Props) {
           session.titulo ?? "",
           session.tema ?? "",
           session.unidad?.titulo ?? "",
-          session.tipo === "CLASE" ? "clase" : "tutoría grupal",
+          SESSION_CATEGORY_LABELS[session.categoria],
         ].join(" ").toLocaleLowerCase("es");
         return haystack.includes(query);
       })
@@ -163,10 +172,12 @@ export function SessionsPage({ onOpenSession }: Props) {
       asignaturaId: Number(selectedSubjectId),
       unidadId: selectedUnitId === "" ? null : Number(selectedUnitId),
       tipo: form.get("tipo"),
+      categoria: form.get("categoria"),
       titulo: form.get("titulo"),
       inicio: form.get("inicio"),
       fin: form.get("fin"),
       estado: form.get("estado") || "PROGRAMADA",
+      observacionesGenerales: form.get("observacionesGenerales"),
     };
 
     setSaving(true);
@@ -265,9 +276,18 @@ export function SessionsPage({ onOpenSession }: Props) {
             </label>
 
             <label>
-              Tipo
+              Categoría
+              <select name="categoria" defaultValue={editing?.categoria ?? "TEORICA"}>
+                {(Object.entries(SESSION_CATEGORY_LABELS) as Array<[SessionCategory, string]>).map(([value, label]) => (
+                  <option value={value} key={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Formato
               <select name="tipo" defaultValue={editing?.tipo ?? "CLASE"}>
-                <option value="CLASE">Clase</option>
+                <option value="CLASE">Sesión de clase</option>
                 <option value="TUTORIA_GRUPAL">Tutoría grupal</option>
               </select>
             </label>
@@ -284,6 +304,11 @@ export function SessionsPage({ onOpenSession }: Props) {
             <label>
               Título
               <input name="titulo" placeholder="Opcional" defaultValue={editing?.titulo ?? ""} />
+            </label>
+
+            <label className="session-form-wide">
+              Hitos / observaciones
+              <textarea name="observacionesGenerales" rows={3} placeholder="Aperturas, entregas, cierres, festivos…" defaultValue={editing?.observacionesGenerales ?? ""} />
             </label>
 
             <label>
@@ -337,11 +362,12 @@ export function SessionsPage({ onOpenSession }: Props) {
             </select>
           </label>
           <label>
-            Tipo
+            Categoría
             <select value={filterType} onChange={(event) => setFilterType(event.target.value as typeof filterType)}>
-              <option value="">Todos</option>
-              <option value="CLASE">Clase</option>
-              <option value="TUTORIA_GRUPAL">Tutoría grupal</option>
+              <option value="">Todas</option>
+              {(Object.entries(SESSION_CATEGORY_LABELS) as Array<[SessionCategory, string]>).map(([value, label]) => (
+                <option value={value} key={value}>{label}</option>
+              ))}
             </select>
           </label>
           <label>
@@ -384,10 +410,11 @@ export function SessionsPage({ onOpenSession }: Props) {
                     <td>{new Intl.DateTimeFormat("es-ES", { dateStyle: "medium" }).format(new Date(session.inicio))}</td>
                     <td>{formatTime(session.inicio)}–{formatTime(session.fin)}</td>
                     <td><strong>{session.asignatura.nombre}</strong></td>
-                    <td>{session.tipo === "CLASE" ? "Clase" : "Tutoría grupal"}</td>
+                    <td><span className={`tag session-category-${session.categoria.toLowerCase().replaceAll("_", "-")}`}>{SESSION_CATEGORY_LABELS[session.categoria]}</span></td>
                     <td>
                       <strong>{session.unidad ? `U${session.unidad.orden} · ${session.unidad.titulo}` : "Sin unidad"}</strong>
                       {(session.titulo || session.tema) && <small className="block-note">{session.titulo || session.tema}</small>}
+                      {session.observacionesGenerales && <small className="block-note session-milestone-note">{session.observacionesGenerales}</small>}
                     </td>
                     <td><span className={`status-pill session-state-${session.estado.toLowerCase()}`}>{SESSION_STATUS_LABELS[session.estado]}</span></td>
                     <td>{session._count?.registros ?? 0}</td>
