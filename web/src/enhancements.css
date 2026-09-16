@@ -342,3 +342,80 @@
   background: #eff6ff;
   color: #1e3a8a;
 }
+
+
+.unit-allocation-section {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.unit-allocation-heading {
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.unit-allocation-subjects {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.unit-allocation-subject {
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.8rem;
+  background: #f8fafc;
+}
+
+.unit-allocation-subject > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.unit-allocation-subject h4 {
+  margin: 0;
+}
+
+.unit-allocation-subject header small {
+  display: block;
+  margin-top: 0.2rem;
+  color: #64748b;
+}
+
+.unit-allocation-table-wrap {
+  overflow-x: auto;
+}
+
+.unit-allocation-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.unit-allocation-table th,
+.unit-allocation-table td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.unit-allocation-table th {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.unit-allocation-issue {
+  margin: 0.5rem 0 0;
+  color: #b91c1c;
+}
+
+@media (max-width: 760px) {
+  .unit-allocation-heading,
+  .unit-allocation-subject > header {
+    flex-direction: column;
+  }
+}
