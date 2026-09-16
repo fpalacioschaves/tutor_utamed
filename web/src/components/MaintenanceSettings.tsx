@@ -5,7 +5,6 @@ type CleanupImpact = {
   enrollments: number;
   sessions: number;
   attendanceRecords: number;
-  activities: number;
   submissions: number;
   tutorials: number;
   followUps: number;
@@ -21,6 +20,7 @@ type CleanupPreview = {
     groups: number;
     subjects: number;
     units: number;
+    activities: number;
     localTeachingMaterials: boolean;
     settings: boolean;
   };
@@ -31,7 +31,6 @@ const LABELS: Array<[keyof CleanupImpact, string]> = [
   ["enrollments", "Matrículas"],
   ["sessions", "Sesiones"],
   ["attendanceRecords", "Registros de asistencia"],
-  ["activities", "Actividades"],
   ["submissions", "Entregas"],
   ["tutorials", "Tutorías individuales"],
   ["followUps", "Seguimientos"],
@@ -72,13 +71,14 @@ export function MaintenanceSettings() {
       .map(([key, label]) => `• ${label}: ${preview.delete[key]}`);
 
     const warning = [
-      "¿Eliminar los datos de prueba y preparar Tutor UTAMED para los datos reales?",
+      "¿Eliminar todas las sesiones y alumnos actuales?",
       "",
       ...(lines.length ? lines : ["No hay registros operativos que eliminar."]),
       "",
       "SE CONSERVARÁN:",
       `• ${preview.preserve.subjects} asignaturas`,
       `• ${preview.preserve.units} unidades/contenidos`,
+      `• ${preview.preserve.activities} actividades`,
       `• ${preview.preserve.groups} grupos`,
       `• ${preview.preserve.courses} cursos académicos`,
       "• Todos los documentos y materiales docentes locales",
@@ -96,7 +96,7 @@ export function MaintenanceSettings() {
       const response = await fetch("/api/maintenance/cleanup-demo-data", { method: "POST" });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error ?? "No se pudieron eliminar los datos de prueba");
-      setMessage("Datos de prueba eliminados correctamente. Asignaturas, unidades y materiales se han conservado.");
+      setMessage("Sesiones y alumnos eliminados correctamente. Asignaturas, unidades, actividades y materiales se han conservado.");
       await loadPreview();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron eliminar los datos de prueba");
@@ -110,13 +110,13 @@ export function MaintenanceSettings() {
       <div className="panel-heading maintenance-heading">
         <div>
           <p className="eyebrow">PREPARACIÓN DE DATOS REALES</p>
-          <h3>Limpiar datos de prueba</h3>
+          <h3>Borrar sesiones y alumnos</h3>
           <p className="muted">
-            Elimina la información operativa usada durante las pruebas sin tocar asignaturas, unidades ni materiales docentes.
+            Elimina las sesiones y los alumnos actuales, junto con los datos dependientes necesarios, sin tocar asignaturas, unidades, actividades ni materiales docentes.
           </p>
         </div>
         <button className="danger-button" type="button" onClick={() => void cleanup()} disabled={loading || cleaning || !preview}>
-          {cleaning ? "Limpiando…" : "Limpiar datos de prueba"}
+          {cleaning ? "Borrando…" : "Borrar sesiones y alumnos"}
         </button>
       </div>
 
@@ -129,7 +129,7 @@ export function MaintenanceSettings() {
         <>
           <div className="maintenance-summary">
             <div>
-              <span>Registros operativos que se eliminarían</span>
+              <span>Registros que se eliminarían</span>
               <strong>{preview.delete.totalOperationalRecords}</strong>
             </div>
             <div>
