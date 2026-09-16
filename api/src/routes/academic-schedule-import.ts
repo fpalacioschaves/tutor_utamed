@@ -365,6 +365,8 @@ async function buildUnitAllocationPreview() {
         units: units.map((unit) => ({ ...unit, sessions: 0, from: null, to: null })),
         assignments: [],
         sessionCount: sessions.length,
+        changesNeeded: 0,
+        alreadyCorrect: 0,
       };
     }
 
@@ -409,6 +411,8 @@ async function buildUnitAllocationPreview() {
       };
     });
 
+    const changesNeeded = assignments.filter((assignment) => assignment.currentUnitId !== assignment.unitId).length;
+
     return {
       code: spec.code,
       subject: { id: subject!.id, nombre: subject!.nombre },
@@ -418,12 +422,16 @@ async function buildUnitAllocationPreview() {
       units: unitRanges,
       assignments,
       sessionCount: sessions.length,
+      changesNeeded,
+      alreadyCorrect: assignments.length - changesNeeded,
     };
   }));
 
   return {
     ready: subjects.every((subject) => subject.ready),
     totalTheoreticalSessions: subjects.reduce((sum, subject) => sum + subject.sessionCount, 0),
+    changesNeeded: subjects.reduce((sum, subject) => sum + subject.changesNeeded, 0),
+    alreadyCorrect: subjects.reduce((sum, subject) => sum + subject.alreadyCorrect, 0),
     subjects,
   };
 }
@@ -447,7 +455,20 @@ academicScheduleImportRouter.post("/unit-allocation-apply", async (_req, res, ne
       return;
     }
 
-    const assignments = preview.subjects.flatMap((subject) => subject.assignments);
+    const assignments = preview.subjects
+      .flatMap((subject) => subject.assignments)
+      .filter((assignment) => assignment.currentUnitId !== assignment.unitId);
+
+    if (assignments.length === 0) {
+      res.json({
+        updated: 0,
+        safetyBackup: null,
+        preview,
+        message: "Las sesiones teóricas ya tienen el reparto de unidades correcto.",
+      });
+      return;
+    }
+
     const safetyBackup = await createBackup("PRE_UNIT_ALLOCATION");
 
     await prisma.$transaction(
