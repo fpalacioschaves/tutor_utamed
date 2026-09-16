@@ -19,6 +19,27 @@
   text-align: center;
 }
 
+.calendar-month-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.calendar-month-control label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.calendar-month-control input[type="month"] {
+  min-width: 150px;
+}
+
 .calendar-navigation,
 .calendar-legend {
   display: flex;
@@ -357,6 +378,9 @@
   }
   .calendar-toolbar h3 {
     text-align: left;
+  }
+  .calendar-month-control {
+    justify-content: flex-start;
   }
   .calendar-legend {
     justify-content: flex-start;
