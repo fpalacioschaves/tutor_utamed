@@ -11,7 +11,7 @@ const DATABASE_PATH = path.join(REPO_ROOT, "api", "prisma", "dev.db");
 const LOCAL_CONTENT_PATH = path.join(REPO_ROOT, "local-content");
 const LOCAL_DATA_PATH = path.join(REPO_ROOT, "local-data");
 
-export type BackupKind = "MANUAL" | "PRE_RESTORE" | "PRE_CLEANUP";
+export type BackupKind = "MANUAL" | "PRE_RESTORE" | "PRE_CLEANUP" | "PRE_IMPORT";
 
 type BackupManifest = {
   name: string;
