@@ -1,6 +1,7 @@
 import { AIConfigInline } from "../components/AIConfigInline";
 import { BackupSettings } from "../components/BackupSettings";
 import { MaintenanceSettings } from "../components/MaintenanceSettings";
+import { AcademicScheduleImportSettings } from "../components/AcademicScheduleImportSettings";
 
 export function SettingsPage() {
   return (
@@ -15,6 +16,7 @@ export function SettingsPage() {
 
       <BackupSettings />
       <MaintenanceSettings />
+      <AcademicScheduleImportSettings />
 
       <section className="panel">
         <div className="unit-tools-heading">
