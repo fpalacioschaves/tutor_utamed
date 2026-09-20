@@ -146,7 +146,7 @@ async function buildPreview() {
   const refs = rows.flatMap((row) => row.oldRef ? [row.ref, row.oldRef] : [row.ref]);
   const existing = await prisma.sesion.findMany({
     where: { referenciaExterna: { in: refs } },
-    select: { id: true, referenciaExterna: true },
+    select: { id: true, referenciaExterna: true, observacionesGenerales: true },
   });
   const byRef = new Map<string, typeof existing>();
   for (const session of existing) {
@@ -241,7 +241,8 @@ groupTutorialScheduleRouter.post("/import", async (_req, res, next) => {
         fin: zonedDate(row.date, slot.end),
         referenciaExterna: row.ref,
         grupoTutoria: slot.group,
-        observacionesGenerales: `Tutoría periódica de 1.º ${slot.group} · ${DAY_LABELS[slot.day]} ${slot.start}–${slot.end}. Grupos DAM y DAW diferenciados; clases síncronas compartidas.`,
+        observacionesGenerales: previous[0].observacionesGenerales?.replace("16:00–17:00", "17:00–18:00")
+          ?? `Tutoría periódica de 1.º ${slot.group} · ${DAY_LABELS[slot.day]} ${slot.start}–${slot.end}. Grupos DAM y DAW diferenciados; clases síncronas compartidas.`,
       }];
     });
 
@@ -274,25 +275,25 @@ groupTutorialScheduleRouter.post("/import", async (_req, res, next) => {
     }
 
     const safetyBackup = await createBackup("PRE_IMPORT");
-    const operations = moves.map((move) =>
-      prisma.sesion.update({
-        where: { id: move.id },
-        data: {
-          inicio: move.inicio,
-          fin: move.fin,
-          referenciaExterna: move.referenciaExterna,
-          grupoTutoria: move.grupoTutoria,
-          observacionesGenerales: move.observacionesGenerales,
-        },
-      }),
-    );
-
-    // Inserciones agrupadas para SQLite; toda la operación se confirma
-    // o revierte en una transacción junto con las correcciones de horario.
-    for (let index = 0; index < planned.length; index += 35) {
-      operations.push(prisma.sesion.createMany({ data: planned.slice(index, index + 35) }) as never);
-    }
-    await prisma.$transaction(operations);
+    // Traslada los registros anteriores conservando su id, estado, unidad
+    // y asistencias; crea únicamente las tutorías que todavía no existan.
+    await prisma.$transaction(async (tx) => {
+      for (const move of moves) {
+        await tx.sesion.update({
+          where: { id: move.id },
+          data: {
+            inicio: move.inicio,
+            fin: move.fin,
+            referenciaExterna: move.referenciaExterna,
+            grupoTutoria: move.grupoTutoria,
+            observacionesGenerales: move.observacionesGenerales,
+          },
+        });
+      }
+      for (let index = 0; index < planned.length; index += 35) {
+        await tx.sesion.createMany({ data: planned.slice(index, index + 35) });
+      }
+    }, { timeout: 30_000 });
 
     res.status(planned.length > 0 ? 201 : 200).json({
       created: planned.length,
