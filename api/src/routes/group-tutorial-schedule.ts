@@ -17,17 +17,23 @@ type Slot = {
 const FROM = "2026-09-21";
 const THROUGH = "2027-06-18";
 
-// Las tutorías son distintas por grupo aunque la docencia síncrona de
-// 1.º DAM/DAW se realice en una única asignatura compartida.
+// Las clases síncronas son compartidas entre DAM y DAW. Las tutorías,
+// en cambio, son independientes por asignatura y grupo.
 const SLOTS: Slot[] = [
   { code: "0373", group: "DAM", day: 2, start: "11:00", end: "11:45" },
   { code: "0485", group: "DAW", day: 3, start: "11:00", end: "12:00" },
   { code: "0485", group: "DAW", day: 2, start: "16:00", end: "17:00" },
   { code: "0487", group: "DAM", day: 4, start: "16:00", end: "16:45" },
   { code: "0485", group: "DAM", day: 4, start: "11:00", end: "12:00" },
-  { code: "0485", group: "DAM", day: 1, start: "16:00", end: "17:00" },
+  { code: "0485", group: "DAM", day: 1, start: "17:00", end: "18:00" },
   { code: "0373", group: "DAW", day: 1, start: "11:00", end: "11:45" },
   { code: "0487", group: "DAW", day: 1, start: "16:00", end: "16:45" },
+];
+
+const CLASS_SLOTS = [
+  { day: 3, name: "Entornos de Desarrollo · DAM/DAW", start: "16:00", end: "17:00" },
+  { day: 3, name: "Lenguajes de Marcas · DAM/DAW", start: "17:00", end: "18:00" },
+  { day: 3, name: "Programación · DAM/DAW", start: "18:00", end: "19:00" },
 ];
 
 const DAY_LABELS: Record<number, string> = {
@@ -37,8 +43,7 @@ const DAY_LABELS: Record<number, string> = {
   4: "Jueves",
 };
 
-// Exclusiones según "Hitos Mensuales" y "Cronograma Semanal" del archivo
-// Temporalizacion_FP_Madrid_2026_2027.xlsx (no usar fiestas inferidas).
+// Fechas no lectivas del archivo Temporalizacion_FP_Madrid_2026_2027.xlsx.
 const NON_TEACHING: Array<{ from: string; through: string; label: string }> = [
   { from: "2026-10-12", through: "2026-10-12", label: "Fiesta Nacional" },
   { from: "2026-11-02", through: "2026-11-02", label: "Todos los Santos" },
@@ -73,6 +78,15 @@ function reference(slot: Slot, day: string) {
   return `utamed-tutoria-2026-2027-${slot.code}-${slot.group}-${day}-${slot.start.replace(":", "")}`;
 }
 
+// Compatibilidad con la primera importación: Programación DAM los lunes
+// se guardaba a las 16:00. Se traslada el MISMO registro a las 17:00
+// conservando su identificador, estado, asistencias y observaciones externas.
+function previousReference(slot: Slot, day: string): string | null {
+  return slot.code === "0485" && slot.group === "DAM" && slot.day === 1
+    ? `utamed-tutoria-2026-2027-0485-DAM-${day}-1600`
+    : null;
+}
+
 function slotKey(slot: Slot) {
   return `${slot.code}-${slot.group}-${slot.day}-${slot.start}`;
 }
@@ -90,6 +104,33 @@ function datesForDay(dayNumber: Slot["day"]) {
   return dates;
 }
 
+function minuteOfDay(value: string) {
+  const [hour, minute] = value.split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+function intersects(a: { start: string; end: string }, b: { start: string; end: string }) {
+  return minuteOfDay(a.start) < minuteOfDay(b.end)
+    && minuteOfDay(b.start) < minuteOfDay(a.end);
+}
+
+function checkScheduleOverlaps() {
+  const warnings: string[] = [];
+  for (let index = 0; index < SLOTS.length; index += 1) {
+    const slot = SLOTS[index];
+    for (const other of SLOTS.slice(index + 1)) {
+      if (slot.day !== other.day || !intersects(slot, other)) continue;
+      warnings.push(`${DAY_LABELS[slot.day]}: ${SUBJECT_NAMES[slot.code]} ${slot.group} (${slot.start}–${slot.end}) coincide con ${SUBJECT_NAMES[other.code]} ${other.group} (${other.start}–${other.end}).`);
+    }
+
+    for (const classSlot of CLASS_SLOTS) {
+      if (slot.day !== classSlot.day || !intersects(slot, classSlot)) continue;
+      warnings.push(`${DAY_LABELS[slot.day]}: Tutoría ${SUBJECT_NAMES[slot.code]} ${slot.group} (${slot.start}–${slot.end}) coincide con la clase ${classSlot.name} (${classSlot.start}–${classSlot.end}).`);
+    }
+  }
+  return warnings;
+}
+
 async function buildPreview() {
   const { course, resolved } = await resolveCourseAndSubjects();
   const subjectByCode = new Map(resolved.map(({ spec, subject }) => [spec.code, subject!]));
@@ -98,28 +139,57 @@ async function buildPreview() {
       slot,
       date,
       ref: reference(slot, date),
+      oldRef: previousReference(slot, date),
     })),
   );
 
+  const refs = rows.flatMap((row) => row.oldRef ? [row.ref, row.oldRef] : [row.ref]);
   const existing = await prisma.sesion.findMany({
-    where: { referenciaExterna: { in: rows.map((row) => row.ref) } },
-    select: { referenciaExterna: true },
+    where: { referenciaExterna: { in: refs } },
+    select: { id: true, referenciaExterna: true },
   });
-  const existingRefs = new Set(existing.map((session) => session.referenciaExterna).filter(Boolean));
+  const byRef = new Map<string, typeof existing>();
+  for (const session of existing) {
+    if (!session.referenciaExterna) continue;
+    const list = byRef.get(session.referenciaExterna) ?? [];
+    list.push(session);
+    byRef.set(session.referenciaExterna, list);
+  }
+
+  const conflicts = rows.flatMap((row) => {
+    const current = byRef.get(row.ref) ?? [];
+    const previous = row.oldRef ? byRef.get(row.oldRef) ?? [] : [];
+    if (current.length + previous.length <= 1) return [];
+    return [`${row.date}: existen varias tutorías importadas para ${SUBJECT_NAMES[row.slot.code]} ${row.slot.group}. Revísalas antes de sincronizar.`];
+  });
+
+  const status = (row: typeof rows[number]) => {
+    const current = byRef.get(row.ref) ?? [];
+    const previous = row.oldRef ? byRef.get(row.oldRef) ?? [] : [];
+    if (current.length > 0) return "existing";
+    if (previous.length > 0) return "toMove";
+    return "toCreate";
+  };
+
   const slots = SLOTS.map((slot) => {
     const planned = rows.filter((row) => slotKey(row.slot) === slotKey(slot));
-    const assigned = subjectByCode.get(slot.code);
+    const assigned = subjectByCode.get(slot.code)!;
     return {
       ...slot,
       id: slotKey(slot),
-      subjectId: assigned!.id,
+      subjectId: assigned.id,
       subjectName: SUBJECT_NAMES[slot.code],
       weekday: DAY_LABELS[slot.day],
       planned: planned.length,
-      existing: planned.filter((row) => existingRefs.has(row.ref)).length,
-      toCreate: planned.filter((row) => !existingRefs.has(row.ref)).length,
+      existing: planned.filter((row) => status(row) === "existing").length,
+      toMove: planned.filter((row) => status(row) === "toMove").length,
+      toCreate: planned.filter((row) => status(row) === "toCreate").length,
     };
   });
+
+  const toCreate = slots.reduce((sum, slot) => sum + slot.toCreate, 0);
+  const toMove = slots.reduce((sum, slot) => sum + slot.toMove, 0);
+  const existingCount = slots.reduce((sum, slot) => sum + slot.existing, 0);
 
   return {
     course,
@@ -127,19 +197,20 @@ async function buildPreview() {
     lastDate: THROUGH,
     slots,
     totalPlanned: rows.length,
-    existing: existingRefs.size,
-    toCreate: rows.length - existingRefs.size,
+    existing: existingCount,
+    toMove,
+    toCreate,
     nonTeaching: NON_TEACHING,
-    overlapWarnings: [
-      "Los lunes de 16:00 a 16:45 coinciden Programación (DAM, 16:00–17:00) y Entornos de Desarrollo (DAW, 16:00–16:45). Se respetan ambos horarios tal como se han facilitado.",
-    ],
+    overlapWarnings: checkScheduleOverlaps(),
+    conflicts,
     rows,
+    byRef,
   };
 }
 
 groupTutorialScheduleRouter.get("/preview", async (_req, res, next) => {
   try {
-    const { rows: _rows, ...preview } = await buildPreview();
+    const { rows: _rows, byRef: _byRef, ...preview } = await buildPreview();
     res.json(preview);
   } catch (error) {
     next(error);
@@ -149,19 +220,33 @@ groupTutorialScheduleRouter.get("/preview", async (_req, res, next) => {
 groupTutorialScheduleRouter.post("/import", async (_req, res, next) => {
   try {
     const preview = await buildPreview();
-    if (preview.toCreate === 0) {
-      res.json({ created: 0, existing: preview.existing, totalPlanned: preview.totalPlanned, safetyBackup: null });
+    if (preview.overlapWarnings.length || preview.conflicts.length) {
+      res.status(409).json({
+        error: "Se han detectado conflictos de horario o tutorías duplicadas. Revisa la vista previa antes de importar.",
+        overlapWarnings: preview.overlapWarnings,
+        conflicts: preview.conflicts,
+      });
       return;
     }
 
     const byCode = new Map(preview.slots.map((slot) => [slot.code, slot.subjectId]));
-    const existing = await prisma.sesion.findMany({
-      where: { referenciaExterna: { in: preview.rows.map((row) => row.ref) } },
-      select: { referenciaExterna: true },
+    const moves = preview.rows.flatMap((row) => {
+      const current = preview.byRef.get(row.ref) ?? [];
+      const previous = row.oldRef ? preview.byRef.get(row.oldRef) ?? [] : [];
+      if (current.length > 0 || previous.length === 0) return [];
+      const slot = row.slot;
+      return [{
+        id: previous[0].id,
+        inicio: zonedDate(row.date, slot.start),
+        fin: zonedDate(row.date, slot.end),
+        referenciaExterna: row.ref,
+        grupoTutoria: slot.group,
+        observacionesGenerales: `Tutoría periódica de 1.º ${slot.group} · ${DAY_LABELS[slot.day]} ${slot.start}–${slot.end}. Grupos DAM y DAW diferenciados; clases síncronas compartidas.`,
+      }];
     });
-    const present = new Set(existing.map((session) => session.referenciaExterna).filter(Boolean));
+
     const planned = preview.rows
-      .filter((row) => !present.has(row.ref))
+      .filter((row) => !preview.byRef.has(row.ref) && (!row.oldRef || !preview.byRef.has(row.oldRef)))
       .map(({ slot, date, ref }) => ({
         asignaturaId: byCode.get(slot.code)!,
         unidadId: null,
@@ -177,22 +262,42 @@ groupTutorialScheduleRouter.post("/import", async (_req, res, next) => {
         observacionesGenerales: `Tutoría periódica de 1.º ${slot.group} · ${DAY_LABELS[slot.day]} ${slot.start}–${slot.end}. Grupos DAM y DAW diferenciados; clases síncronas compartidas.`,
       }));
 
-    if (planned.length === 0) {
-      res.json({ created: 0, existing: preview.totalPlanned, totalPlanned: preview.totalPlanned, safetyBackup: null });
+    if (moves.length === 0 && planned.length === 0) {
+      res.json({
+        created: 0,
+        moved: 0,
+        existing: preview.existing,
+        totalPlanned: preview.totalPlanned,
+        safetyBackup: null,
+      });
       return;
     }
 
     const safetyBackup = await createBackup("PRE_IMPORT");
-    // Lotes pequeños por el límite de parámetros SQL de SQLite. Toda la
-    // importación se confirma o revierte en una única transacción.
-    const batches = [];
+    const operations = moves.map((move) =>
+      prisma.sesion.update({
+        where: { id: move.id },
+        data: {
+          inicio: move.inicio,
+          fin: move.fin,
+          referenciaExterna: move.referenciaExterna,
+          grupoTutoria: move.grupoTutoria,
+          observacionesGenerales: move.observacionesGenerales,
+        },
+      }),
+    );
+
+    // Inserciones agrupadas para SQLite; toda la operación se confirma
+    // o revierte en una transacción junto con las correcciones de horario.
     for (let index = 0; index < planned.length; index += 35) {
-      batches.push(prisma.sesion.createMany({ data: planned.slice(index, index + 35) }));
+      operations.push(prisma.sesion.createMany({ data: planned.slice(index, index + 35) }) as never);
     }
-    await prisma.$transaction(batches);
-    res.status(201).json({
+    await prisma.$transaction(operations);
+
+    res.status(planned.length > 0 ? 201 : 200).json({
       created: planned.length,
-      existing: present.size,
+      moved: moves.length,
+      existing: preview.existing,
       totalPlanned: preview.totalPlanned,
       safetyBackup,
     });
