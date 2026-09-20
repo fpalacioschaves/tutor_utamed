@@ -117,7 +117,7 @@ function madridDateTime(date: string, time: string) {
   return new Date(`${date}T${time}:00${madridOffset(date)}`);
 }
 
-async function resolveCourseAndSubjects() {
+export async function resolveCourseAndSubjects() {
   const course = await prisma.cursoAcademico.findUnique({
     where: { nombre: "2026/2027" },
     select: { id: true, nombre: true },
