@@ -12,6 +12,7 @@ type TutorialSlot = {
   end: string;
   planned: number;
   existing: number;
+  toMove: number;
   toCreate: number;
 };
 
@@ -22,7 +23,9 @@ type TutorialPreview = {
   slots: TutorialSlot[];
   totalPlanned: number;
   existing: number;
+  toMove: number;
   toCreate: number;
+  conflicts: string[];
   nonTeaching: Array<{ from: string; through: string; label: string }>;
   overlapWarnings: string[];
 };
@@ -63,12 +66,12 @@ export function GroupTutorialScheduleSettings() {
   }, []);
 
   async function importSchedule() {
-    if (!preview || preview.toCreate === 0) return;
+    if (!preview || (preview.toCreate === 0 && preview.toMove === 0) || preview.conflicts.length > 0 || preview.overlapWarnings.length > 0) return;
 
     const confirmation = [
-      "¿Importar el horario semanal de tutorías de 1.º DAM y DAW?",
+      "¿Importar o corregir el horario semanal de tutorías de 1.º DAM y DAW?",
       "",
-      `${preview.totalPlanned} tutorías previstas, de las que ${preview.toCreate} son nuevas.`,
+      `${preview.totalPlanned} tutorías previstas: ${preview.toCreate} nuevas y ${preview.toMove} de Programación DAM que se trasladarán de lunes 16:00–17:00 a 17:00–18:00.`,
       `Periodo: ${formatDay(preview.firstDate)} – ${formatDay(preview.lastDate)}.`,
       "Se excluyen los festivos, los días no lectivos y las vacaciones del Excel.",
       "",
@@ -78,8 +81,8 @@ export function GroupTutorialScheduleSettings() {
       "",
       ...preview.overlapWarnings.map((warning) => `AVISO: ${warning}`),
       "",
-      "Se creará una copia de seguridad completa antes de insertar las tutorías.",
-      "No se modificarán las asignaturas, unidades, materiales ni las clases compartidas DAM/DAW.",
+      "Se creará una copia de seguridad completa antes de modificar o insertar las tutorías.",
+      "Se conservarán los identificadores, estados y asistencias de las tutorías que se corrijan. No se modificarán las asignaturas, unidades, materiales ni las clases compartidas DAM/DAW.",
     ].join("\n");
 
     if (!window.confirm(confirmation)) return;
@@ -91,7 +94,7 @@ export function GroupTutorialScheduleSettings() {
       const response = await fetch("/api/group-tutorial-schedule/import", { method: "POST" });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || "No se pudieron importar las tutorías");
-      setMessage(`Tutorías importadas: ${body.created} nuevas. Las ${body.existing} ya existentes se han conservado sin duplicarlas.`);
+      setMessage(`Horario actualizado: ${body.moved ?? 0} tutorías de Programación DAM trasladadas a las 17:00 y ${body.created} nuevas. ${body.existing} ya estaban correctas.`);
       await loadPreview();
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron importar las tutorías");
@@ -114,9 +117,9 @@ export function GroupTutorialScheduleSettings() {
           className="primary"
           type="button"
           onClick={() => void importSchedule()}
-          disabled={loading || saving || !preview || preview.toCreate === 0}
+          disabled={loading || saving || !preview || (preview.toCreate === 0 && preview.toMove === 0) || preview.conflicts.length > 0 || preview.overlapWarnings.length > 0}
         >
-          {saving ? "Importando tutorías…" : preview?.toCreate === 0 ? "Tutorías ya importadas" : "Importar tutorías"}
+          {saving ? "Actualizando tutorías…" : preview && preview.toCreate === 0 && preview.toMove === 0 ? "Horario ya actualizado" : "Corregir e importar tutorías"}
         </button>
       </div>
 
@@ -130,7 +133,8 @@ export function GroupTutorialScheduleSettings() {
           <div className="academic-import-summary">
             <div><span>Franjas semanales</span><strong>{preview.slots.length}</strong></div>
             <div><span>Tutorías previstas</span><strong>{preview.totalPlanned}</strong></div>
-            <div><span>Ya importadas</span><strong>{preview.existing}</strong></div>
+            <div><span>Ya correctas</span><strong>{preview.existing}</strong></div>
+            <div><span>Por trasladar a las 17:00</span><strong>{preview.toMove}</strong></div>
             <div><span>Pendientes</span><strong>{preview.toCreate}</strong></div>
           </div>
 
@@ -147,6 +151,7 @@ export function GroupTutorialScheduleSettings() {
                   <th>Asignatura</th>
                   <th>Grupo</th>
                   <th>Sesiones</th>
+                  <th>Por trasladar</th>
                   <th>Pendientes</th>
                 </tr>
               </thead>
@@ -158,12 +163,25 @@ export function GroupTutorialScheduleSettings() {
                     <td><strong>{slot.subjectName}</strong></td>
                     <td><span className="tag">{slot.group}</span></td>
                     <td>{slot.planned}</td>
+                    <td>{slot.toMove}</td>
                     <td>{slot.toCreate}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {preview.overlapWarnings.length === 0 && (
+            <div className="notice-banner success group-tutorial-warning" role="status">
+              Horarios comprobados: ninguna tutoría se solapa con otra ni con las clases síncronas de los miércoles (16:00–19:00).
+            </div>
+          )}
+
+          {preview.conflicts.map((conflict) => (
+            <div className="notice-banner error group-tutorial-warning" role="alert" key={conflict}>
+              <strong>Registros duplicados detectados:</strong> {conflict}
+            </div>
+          ))}
 
           {preview.overlapWarnings.map((warning) => (
             <div className="notice-banner warning group-tutorial-warning" role="status" key={warning}>
