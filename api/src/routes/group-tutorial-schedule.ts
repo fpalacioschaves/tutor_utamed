@@ -112,7 +112,7 @@ async function buildPreview() {
     return {
       ...slot,
       id: slotKey(slot),
-      subjectId: assigned.id,
+      subjectId: assigned!.id,
       subjectName: SUBJECT_NAMES[slot.code],
       weekday: DAY_LABELS[slot.day],
       planned: planned.length,
