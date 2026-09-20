@@ -419,3 +419,42 @@
     flex-direction: column;
   }
 }
+
+.group-tutorial-settings-panel {
+  margin-bottom: 1.25rem;
+}
+.group-tutorial-settings-heading {
+  align-items: flex-start;
+  gap: 1rem;
+}
+.group-tutorial-settings-heading .muted {
+  max-width: 740px;
+  margin: 0.35rem 0 0;
+}
+.group-tutorial-table {
+  margin-top: 0.65rem;
+}
+.group-tutorial-warning {
+  margin-top: 1rem;
+}
+.group-tutorial-exclusions {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.7rem;
+  background: #f8fafc;
+}
+.group-tutorial-exclusions summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+.group-tutorial-exclusions p {
+  margin: 0.5rem 0;
+  color: #475569;
+  font-size: 0.86rem;
+}
+@media (max-width: 760px) {
+  .group-tutorial-settings-heading {
+    flex-direction: column;
+  }
+}

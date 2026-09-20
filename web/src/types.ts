@@ -82,6 +82,7 @@ export type Session = {
   id: number;
   tipo: "CLASE" | "TUTORIA_GRUPAL";
   categoria: SessionCategory;
+  grupoTutoria: "DAM" | "DAW" | null;
   titulo: string | null;
   tema: string | null;
   observacionesGenerales: string | null;

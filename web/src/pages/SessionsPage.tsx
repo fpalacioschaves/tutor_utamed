@@ -53,6 +53,7 @@ export function SessionsPage({ onOpenSession }: Props) {
   const [search, setSearch] = useState("");
   const [filterSubjectId, setFilterSubjectId] = useState<number | "">("");
   const [filterType, setFilterType] = useState<"" | SessionCategory>("");
+  const [filterGroup, setFilterGroup] = useState<"" | "DAM" | "DAW">("");
   const [filterState, setFilterState] = useState<"" | Session["estado"]>("");
   const [period, setPeriod] = useState<PeriodFilter>("ALL");
   const formPanelRef = useRef<HTMLElement | null>(null);
@@ -111,6 +112,7 @@ export function SessionsPage({ onOpenSession }: Props) {
       .filter((session) => {
         if (filterSubjectId !== "" && session.asignatura.id !== filterSubjectId) return false;
         if (filterType && session.categoria !== filterType) return false;
+        if (filterGroup && session.grupoTutoria !== filterGroup) return false;
         if (filterState && session.estado !== filterState) return false;
 
         const start = new Date(session.inicio).getTime();
@@ -124,11 +126,12 @@ export function SessionsPage({ onOpenSession }: Props) {
           session.tema ?? "",
           session.unidad?.titulo ?? "",
           SESSION_CATEGORY_LABELS[session.categoria],
+          session.grupoTutoria ?? session.asignatura.grupo,
         ].join(" ").toLocaleLowerCase("es");
         return haystack.includes(query);
       })
       .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime());
-  }, [sessions, search, filterSubjectId, filterType, filterState, period]);
+  }, [sessions, search, filterSubjectId, filterType, filterGroup, filterState, period]);
 
   function startCreating() {
     setEditing(null);
@@ -361,6 +364,14 @@ export function SessionsPage({ onOpenSession }: Props) {
             </select>
           </label>
           <label>
+            Tutorías de grupo
+            <select value={filterGroup} onChange={(event) => setFilterGroup(event.target.value as typeof filterGroup)}>
+              <option value="">Todos los grupos</option>
+              <option value="DAM">DAM</option>
+              <option value="DAW">DAW</option>
+            </select>
+          </label>
+          <label>
             Estado
             <select value={filterState} onChange={(event) => setFilterState(event.target.value as typeof filterState)}>
               <option value="">Todos</option>
@@ -387,6 +398,7 @@ export function SessionsPage({ onOpenSession }: Props) {
                   <th>Fecha</th>
                   <th>Horario</th>
                   <th>Asignatura</th>
+                  <th>Grupo</th>
                   <th>Tipo</th>
                   <th>Unidad</th>
                   <th>Estado</th>
@@ -400,6 +412,7 @@ export function SessionsPage({ onOpenSession }: Props) {
                     <td>{new Intl.DateTimeFormat("es-ES", { dateStyle: "medium" }).format(new Date(session.inicio))}</td>
                     <td>{formatTime(session.inicio)}–{formatTime(session.fin)}</td>
                     <td><strong>{session.asignatura.nombre}</strong></td>
+                    <td>{session.grupoTutoria ? `1.º ${session.grupoTutoria}` : session.asignatura.grupo || "—"}</td>
                     <td><span className={`tag session-category-${session.categoria.toLowerCase().replaceAll("_", "-")}`}>{SESSION_CATEGORY_LABELS[session.categoria]}</span></td>
                     <td>
                       <strong>{session.unidad ? `U${session.unidad.orden} · ${session.unidad.titulo}` : "Sin unidad"}</strong>

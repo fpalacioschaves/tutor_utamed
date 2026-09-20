@@ -52,7 +52,7 @@ calendarRouter.get("/", async (req, res, next) => {
           || (session.tipo === "TUTORIA_GRUPAL" ? `Tutoría grupal · ${session.asignatura.nombre}` : session.unidad?.titulo || session.asignatura.nombre),
         subtitle: [
           session.asignatura.nombre,
-          session.asignatura.grupo || null,
+          session.grupoTutoria ? `1.º ${session.grupoTutoria}` : session.asignatura.grupo || null,
           session.unidad ? `U${session.unidad.orden} · ${session.unidad.titulo}` : null,
         ].filter(Boolean).join(" · "),
         start: session.inicio.toISOString(),

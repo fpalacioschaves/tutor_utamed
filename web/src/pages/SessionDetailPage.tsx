@@ -228,6 +228,7 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
           <h2>{session.asignatura.nombre}</h2>
           <p>{new Intl.DateTimeFormat("es-ES", { dateStyle: "full", timeStyle: "short" }).format(new Date(session.inicio))}</p>
           {session.titulo && <p className="session-topic"><strong>{session.titulo}</strong></p>}
+          {session.grupoTutoria && <p className="session-topic"><strong>Grupo: 1.º {session.grupoTutoria}</strong></p>}
           {session.unidad && <p className="session-topic">Unidad: U{session.unidad.orden} · {session.unidad.titulo}</p>}
           {session.tema && <p className="session-topic">Tema: {session.tema}</p>}
         </div>
