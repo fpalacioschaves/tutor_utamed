@@ -222,6 +222,7 @@ model Sesion {
   unidadId               Int?              @map("unidad_id")
   tipo                   TipoSesion
   categoria              String            @default("TEORICA")
+  grupoTutoria           String?           @map("grupo_tutoria")
   titulo                 String?
   tema                   String?
   inicio                 DateTime
