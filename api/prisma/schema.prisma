@@ -101,6 +101,7 @@ model Grupo {
   updatedAt        DateTime         @updatedAt @map("updated_at")
   cursoAcademico   CursoAcademico   @relation(fields: [cursoAcademicoId], references: [id])
   asignaturas      Asignatura[]
+  alumnos          Alumno[]
 
   @@unique([cursoAcademicoId, nombre])
   @@index([cursoAcademicoId])
@@ -115,6 +116,8 @@ model Alumno {
   identificadorExterno String?              @map("identificador_externo")
   activo               Boolean              @default(true)
   notasGenerales       String?              @map("notas_generales")
+  grupoId              Int?                 @map("grupo_id")
+  grupo                Grupo?               @relation(fields: [grupoId], references: [id])
   createdAt            DateTime             @default(now()) @map("created_at")
   updatedAt            DateTime             @updatedAt @map("updated_at")
   matriculas           Matricula[]
@@ -126,6 +129,7 @@ model Alumno {
   comunicaciones       Comunicacion[]
 
   @@index([apellidos, nombre])
+  @@index([grupoId])
   @@map("alumnos")
 }
 

@@ -3,6 +3,14 @@ import type { Subject } from "../types";
 
 type SubjectOption = Subject & { activa?: boolean };
 
+type GroupOption = {
+  id: number;
+  cursoAcademicoId: number;
+  nombre: string;
+  activo: boolean;
+  cursoAcademico: { id: number; nombre: string };
+};
+
 type Student = {
   id: number;
   nombre: string;
@@ -10,6 +18,8 @@ type Student = {
   email: string | null;
   identificadorExterno?: string | null;
   notasGenerales?: string | null;
+  grupoId: number | null;
+  grupo: GroupOption | null;
   activo?: boolean;
   matriculas: Array<{ id: number; asignatura: SubjectOption }>;
 };
@@ -17,25 +27,29 @@ type Student = {
 export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) => void }) {
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [groups, setGroups] = useState<GroupOption[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
   const [search, setSearch] = useState("");
   const [subjectFilter, setSubjectFilter] = useState<number | "">("");
+  const [groupFilter, setGroupFilter] = useState<number | "">("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ACTIVE");
   const formPanelRef = useRef<HTMLElement | null>(null);
 
   async function load() {
     setError("");
     try {
-      const [studentsResponse, subjectsResponse] = await Promise.all([
+      const [studentsResponse, subjectsResponse, groupsResponse] = await Promise.all([
         fetch("/api/students"),
         fetch("/api/subjects"),
+        fetch("/api/groups"),
       ]);
-      if (!studentsResponse.ok || !subjectsResponse.ok) throw new Error("No se pudieron cargar los alumnos");
+      if (!studentsResponse.ok || !subjectsResponse.ok || !groupsResponse.ok) throw new Error("No se pudieron cargar los alumnos y grupos");
       setStudents(await studentsResponse.json());
       setSubjects(await subjectsResponse.json());
+      setGroups(await groupsResponse.json());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar alumnos");
     }
@@ -52,13 +66,14 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
       if (statusFilter === "ACTIVE" && !active) return false;
       if (statusFilter === "INACTIVE" && active) return false;
       if (subjectFilter !== "" && !student.matriculas.some((enrollment) => enrollment.asignatura.id === subjectFilter)) return false;
+      if (groupFilter !== "" && student.grupoId !== groupFilter) return false;
       if (!query) return true;
       const haystack = [student.nombre, student.apellidos, student.email ?? "", student.identificadorExterno ?? "", ...student.matriculas.map((item) => item.asignatura.nombre)]
         .join(" ")
         .toLocaleLowerCase("es");
       return haystack.includes(query);
     });
-  }, [students, search, subjectFilter, statusFilter]);
+  }, [students, search, subjectFilter, groupFilter, statusFilter]);
 
   async function saveStudent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,6 +91,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
         email: data.get("email"),
         identificadorExterno: data.get("identificadorExterno"),
         notasGenerales: data.get("notasGenerales"),
+        grupoId: data.get("grupoId") || null,
         activo: data.get("activo") === "on",
         asignaturaIds: subjectIds,
       };
@@ -117,6 +133,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
   }
 
   const activeSubjects = subjects.filter((subject) => subject.activa !== false);
+  const selectableGroups = groups.filter((group) => group.activo || group.id === editing?.grupoId);
 
   return (
     <>
@@ -157,6 +174,15 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
                 <input name="identificadorExterno" placeholder="Opcional" defaultValue={editing?.identificadorExterno ?? ""} />
               </label>
             </div>
+            <label>
+              Grupo académico
+              <select name="grupoId" defaultValue={editing?.grupoId ?? ""} required={selectableGroups.length > 0}>
+                <option value="">Sin asignar</option>
+                {selectableGroups.map((group) => (
+                  <option key={group.id} value={group.id}>{group.nombre} · {group.cursoAcademico.nombre}</option>
+                ))}
+              </select>
+            </label>
             <label>
               Notas generales
               <textarea name="notasGenerales" rows={4} placeholder="Información general que quieras conservar sobre el alumno" defaultValue={editing?.notasGenerales ?? ""} />
@@ -200,7 +226,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
             <div><p className="eyebrow">REGISTRADOS</p><h3>{visibleStudents.length} de {students.length} alumnos</h3></div>
           </div>
 
-          <div className="list-toolbar" aria-label="Filtrar alumnos">
+          <div className="list-toolbar students-filter-toolbar" aria-label="Filtrar alumnos">
             <label className="search-field">
               <span>Buscar</span>
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre, correo, identificador o asignatura" />
@@ -210,6 +236,13 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
               <select value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value ? Number(event.target.value) : "")}>
                 <option value="">Todas</option>
                 {activeSubjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.nombre}</option>)}
+              </select>
+            </label>
+            <label>
+              Grupo
+              <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value ? Number(event.target.value) : "")}>
+                <option value="">Todos</option>
+                {groups.map((group) => <option key={group.id} value={group.id}>{group.nombre} · {group.cursoAcademico.nombre}</option>)}
               </select>
             </label>
             <label>
@@ -233,6 +266,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
                   <div className="student-main-data">
                     <div className="entity-title-line">
                       <strong>{student.apellidos}, {student.nombre}</strong>
+                      <span className="tag">{student.grupo?.nombre ?? "Sin grupo"}</span>
                       {student.activo === false && <span className="status-pill muted-status">Inactivo</span>}
                     </div>
                     <small>{student.email || "Sin correo"}</small>

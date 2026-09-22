@@ -760,3 +760,16 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .ai-config-grid { grid-template-columns: 1fr; }
   .ai-action-grid > button { width: 100%; }
 }
+
+/* Grupos DAM / DAW: cuatro filtros sin desbordamiento lateral. */
+.students-filter-toolbar {
+  grid-template-columns: minmax(170px, 1.3fr) repeat(3, minmax(115px, .7fr));
+}
+@media (max-width: 1400px) {
+  .students-filter-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .students-filter-toolbar .search-field { grid-column: 1 / -1; }
+}
+@media (max-width: 600px) {
+  .students-filter-toolbar { grid-template-columns: 1fr; }
+  .students-filter-toolbar .search-field { grid-column: auto; }
+}

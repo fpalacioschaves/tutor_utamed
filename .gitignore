@@ -4,6 +4,7 @@ dist/
 .env.local
 api/prisma/dev.db
 api/prisma/dev.db-journal
+api/prisma/dev.pre-grupos.db
 local-content/
 local-data/
 local-backups/

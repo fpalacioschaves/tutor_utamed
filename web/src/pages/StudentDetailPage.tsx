@@ -205,7 +205,7 @@ export function StudentDetailPage({ studentId, onBack }: Props) {
           <button className="back-button" type="button" onClick={onBack}>← Alumnos</button>
           <p className="eyebrow">FICHA COMPLETA DEL ALUMNO</p>
           <h2>{alumno.nombre} {alumno.apellidos}</h2>
-          <p>{alumno.email || "Sin correo registrado"}</p>
+          <p>{alumno.email || "Sin correo registrado"} · Grupo: {alumno.grupo?.nombre ?? "Sin asignar"}</p>
         </div>
         <div className="subject-tags student-detail-subjects">
           {alumno.matriculas.filter((item) => item.activa).map((enrollment) => (
@@ -238,6 +238,7 @@ export function StudentDetailPage({ studentId, onBack }: Props) {
             <div><dt>Apellidos</dt><dd>{alumno.apellidos}</dd></div>
             <div><dt>Correo</dt><dd>{alumno.email || "—"}</dd></div>
             <div><dt>Identificador externo</dt><dd>{alumno.identificadorExterno || "—"}</dd></div>
+             <div><dt>Grupo académico</dt><dd>{alumno.grupo?.nombre ?? "Sin asignar"}</dd></div>
             <div><dt>Estado</dt><dd>{alumno.activo ? "Activo" : "Inactivo"}</dd></div>
           </dl>
           <div className="general-notes">

@@ -3,21 +3,48 @@ import { prisma } from "../lib/prisma";
 
 export const studentsRouter = Router();
 
+function parseGroupId(value: unknown): number | null | undefined {
+  if (value === null || value === undefined || value === "") return null;
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : undefined;
+}
+
+async function groupIsValid(grupoId: number | null, subjectIds: number[]) {
+  if (grupoId === null) return true;
+  const group = await prisma.grupo.findUnique({ where: { id: grupoId } });
+  if (!group || !group.activo) return false;
+  if (subjectIds.length === 0) return true;
+  const subjects = await prisma.asignatura.findMany({
+    where: { id: { in: subjectIds } },
+    select: { id: true, cursoAcademicoId: true },
+  });
+  return subjects.length === subjectIds.length &&
+    subjects.every((subject) => subject.cursoAcademicoId === group.cursoAcademicoId);
+}
+
+
 studentsRouter.get("/", async (req, res, next) => {
   try {
     const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+    const groupFilter = req.query.grupoId === undefined ? null : parseGroupId(req.query.grupoId);
+    if (req.query.grupoId !== undefined && (groupFilter === undefined || groupFilter === null)) {
+      res.status(400).json({ error: "Grupo no válido" });
+      return;
+    }
     const students = await prisma.alumno.findMany({
-      where: search
-        ? {
+      where: {
+        ...(groupFilter ? { grupoId: groupFilter } : {}),
+        ...(search ? {
             OR: [
               { nombre: { contains: search } },
               { apellidos: { contains: search } },
               { email: { contains: search } },
             ],
-          }
-        : undefined,
+          } : {}),
+      },
       orderBy: [{ apellidos: "asc" }, { nombre: "asc" }],
       include: {
+        grupo: true,
         matriculas: {
           where: { activa: true },
           include: { asignatura: true },
@@ -42,6 +69,7 @@ studentsRouter.get("/:id/detail", async (req, res, next) => {
     const student = await prisma.alumno.findUnique({
       where: { id },
       include: {
+        grupo: true,
         matriculas: {
           include: {
             asignatura: { include: { cursoAcademico: true } },
@@ -242,7 +270,7 @@ studentsRouter.get("/:id/detail", async (req, res, next) => {
 
 studentsRouter.post("/", async (req, res, next) => {
   try {
-    const { nombre, apellidos, email, identificadorExterno, notasGenerales, asignaturaIds, activo } = req.body;
+    const { nombre, apellidos, email, identificadorExterno, notasGenerales, asignaturaIds, activo, grupoId: groupInput } = req.body;
     if (!nombre || !apellidos) {
       res.status(400).json({ error: "nombre y apellidos son obligatorios" });
       return;
@@ -252,6 +280,12 @@ studentsRouter.post("/", async (req, res, next) => {
       ? Array.from(new Set(asignaturaIds.map(Number).filter(Number.isInteger)))
       : [];
 
+    const grupoId = parseGroupId(groupInput);
+    if (grupoId === undefined || !(await groupIsValid(grupoId, selectedSubjectIds))) {
+      res.status(400).json({ error: "Selecciona un grupo válido del mismo curso académico que las asignaturas" });
+      return;
+    }
+
     const student = await prisma.$transaction(async (tx) => {
       const created = await tx.alumno.create({
         data: {
@@ -260,6 +294,7 @@ studentsRouter.post("/", async (req, res, next) => {
           email: email ? String(email).trim() : null,
           identificadorExterno: identificadorExterno ? String(identificadorExterno).trim() : null,
           notasGenerales: notasGenerales ? String(notasGenerales).trim() : null,
+          grupoId,
         },
       });
 
@@ -275,6 +310,7 @@ studentsRouter.post("/", async (req, res, next) => {
     const created = await prisma.alumno.findUnique({
       where: { id: student.id },
       include: {
+        grupo: true,
         matriculas: {
           where: { activa: true },
           include: { asignatura: true },
@@ -296,7 +332,7 @@ studentsRouter.put("/:id", async (req, res, next) => {
       return;
     }
 
-    const { nombre, apellidos, email, identificadorExterno, notasGenerales, asignaturaIds, activo } = req.body;
+    const { nombre, apellidos, email, identificadorExterno, notasGenerales, asignaturaIds, activo, grupoId: groupInput } = req.body;
     if (!nombre || !apellidos) {
       res.status(400).json({ error: "nombre y apellidos son obligatorios" });
       return;
@@ -312,6 +348,16 @@ studentsRouter.put("/:id", async (req, res, next) => {
       return;
     }
 
+    const grupoId = parseGroupId(groupInput);
+    const validSubjectIds = selectedSubjectIds ?? (await prisma.matricula.findMany({
+      where: { alumnoId: id, activa: true },
+      select: { asignaturaId: true },
+    })).map((item) => item.asignaturaId);
+    if (grupoId === undefined || !(await groupIsValid(grupoId, validSubjectIds))) {
+      res.status(400).json({ error: "Selecciona un grupo válido del mismo curso académico que las asignaturas" });
+      return;
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.alumno.update({
         where: { id },
@@ -321,6 +367,7 @@ studentsRouter.put("/:id", async (req, res, next) => {
           email: email ? String(email).trim() : null,
           identificadorExterno: identificadorExterno ? String(identificadorExterno).trim() : null,
           notasGenerales: notasGenerales ? String(notasGenerales).trim() : null,
+          grupoId,
           activo: typeof activo === "boolean" ? activo : existing.activo,
         },
       });
@@ -356,6 +403,7 @@ studentsRouter.put("/:id", async (req, res, next) => {
     const updated = await prisma.alumno.findUnique({
       where: { id },
       include: {
+        grupo: true,
         matriculas: {
           where: { activa: true },
           include: { asignatura: true },

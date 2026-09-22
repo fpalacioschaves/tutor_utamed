@@ -127,6 +127,8 @@ export type StudentDetailResponse = {
     email: string | null;
     identificadorExterno: string | null;
     notasGenerales: string | null;
+    grupoId: number | null;
+    grupo: { id: number; nombre: string; cursoAcademicoId: number } | null;
     activo: boolean;
     matriculas: Array<{
       id: number;
