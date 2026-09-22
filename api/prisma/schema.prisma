@@ -263,6 +263,7 @@ model ReservaBloqueTutoria {
   alumno    Alumno   @relation(fields: [alumnoId], references: [id], onDelete: Restrict)
 
   @@unique([sesionId, bloque])
+  @@unique([sesionId, alumnoId])
   @@index([alumnoId])
   @@map("reservas_bloques_tutoria")
 }
