@@ -226,7 +226,7 @@ activitiesRouter.put("/:id/deliveries", async (req, res, next) => {
     }
 
     const result = await prisma.$transaction(
-      deliveries.map((delivery) => {
+      deliveries.map((delivery: any) => {
         const alumnoId = Number(delivery.alumnoId);
         const grade = delivery.calificacion === null || delivery.calificacion === undefined || delivery.calificacion === ""
           ? null

@@ -40,27 +40,18 @@ if not exist node_modules\pdf-parse\package.json (
 )
 
 if not exist api\prisma\dev.db (
-  echo Primera ejecucion: creando la base de datos local...
-  call npm run setup
-  if errorlevel 1 goto :error
   echo.
-) else (
-  call :stop_old_api
-
-  echo Comprobando esquema de base de datos y Prisma Client...
-  call npm run db:update
-  if errorlevel 1 (
-    echo.
-    echo Prisma no pudo actualizarse en el primer intento.
-    echo Esperando a que Windows libere los archivos y reintentando...
-    timeout /t 2 /nobreak >nul
-    call :stop_old_api
-    call npm run db:update
-    if errorlevel 1 goto :prisma_error
-  )
-  echo Base de datos preparada.
-  echo.
+  echo ERROR: NO EXISTE api\prisma\dev.db
+  echo Se detiene el arranque para NO crear una base vacia.
+  echo Busca tu dev.db anterior antes de continuar.
+  pause
+  exit /b 1
 )
+
+call :stop_old_api
+echo Base SQLite existente detectada. No se modificara al arrancar.
+echo Para cambiar el esquema, usa ACTUALIZAR_BASE.bat aparte, previa comprobacion.
+echo.
 
 echo Arrancando Tutor UTAMED...
 echo Web: http://localhost:5173

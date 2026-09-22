@@ -10,11 +10,12 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
-    "db:setup": "node scripts/backup-before-groups.mjs && prisma generate && prisma db push && tsx prisma/seed.ts && tsx prisma/assign-student-groups.ts",
-    "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
+    "db:setup": "node scripts/only-new-db.mjs && prisma generate && prisma db push && tsx prisma/seed.ts",
+    "db:reset": "node scripts/reset-disabled.mjs",
     "seed": "tsx prisma/seed.ts",
-    "db:update": "node scripts/backup-before-groups.mjs && prisma db push && prisma generate && tsx prisma/assign-student-groups.ts",
-    "predev": "prisma generate"
+    "db:update": "node scripts/backup-before-groups.mjs && prisma db push && prisma generate",
+    "predev": "node scripts/check-db-present.mjs && prisma generate",
+    "db:assign-groups": "tsx prisma/assign-student-groups.ts"
   },
   "dependencies": {
     "@prisma/client": "6.19.0",
