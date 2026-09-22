@@ -22,6 +22,46 @@ async function getTutorialDeletionImpact(tutorialId: number) {
   };
 }
 
+// El horario ya existe en sesiones importadas: esta consulta es SOLO LECTURA.
+// Nunca vuelve a importar ni duplica fechas, sesiones o alumnos.
+tutorialsRouter.get("/schedule", async (req, res, next) => {
+  try {
+    const from = typeof req.query.from === "string" ? new Date(req.query.from) : null;
+    const to = typeof req.query.to === "string" ? new Date(req.query.to) : null;
+    if (!from || !to || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())
+        || from >= to || to.getTime() - from.getTime() > 370 * 86400000) {
+      res.status(400).json({ error: "Selecciona un intervalo de fechas válido de hasta un año." });
+      return;
+    }
+
+    const schema = await prisma.$queryRawUnsafe<Array<{ name: string }>>(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='reservas_bloques_tutoria'",
+    );
+    if (!schema.length) {
+      res.status(503).json({
+        error: "Falta la tabla de reservas en esta instalación. Cierra y arranca de nuevo Tutor UTAMED con el BAT habitual, sin ejecutar setup ni reset.",
+      });
+      return;
+    }
+
+    const entries = await prisma.sesion.findMany({
+      where: {
+        tipo: "TUTORIA_GRUPAL",
+        categoria: "TUTORIA_DUDAS",
+        inicio: { gte: from, lt: to },
+      },
+      select: {
+        id: true, inicio: true, fin: true, estado: true,
+        grupoTutoria: true, titulo: true,
+        asignatura: { select: { id: true, nombre: true, cursoAcademicoId: true } },
+        _count: { select: { reservasTutoria: true } },
+      },
+      orderBy: [{ inicio: "asc" }, { id: "asc" }],
+    });
+    res.json(entries);
+  } catch (error) { next(error); }
+});
+
 tutorialsRouter.get("/", async (req, res, next) => {
   try {
     const studentId = req.query.studentId ? Number(req.query.studentId) : undefined;
