@@ -31,6 +31,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [creatingGroups, setCreatingGroups] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
   const [search, setSearch] = useState("");
   const [subjectFilter, setSubjectFilter] = useState<number | "">("");
@@ -134,6 +135,26 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
 
   const activeSubjects = subjects.filter((subject) => subject.activa !== false);
   const selectableGroups = groups.filter((group) => group.activo || group.id === editing?.grupoId);
+  const missingDefaultGroups = ["DAM", "DAW"].filter((name) =>
+    !groups.some((group) => group.nombre.toUpperCase() === name && group.cursoAcademico.nombre === "2026/2027"),
+  );
+
+  async function ensureDefaultGroups() {
+    setCreatingGroups(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/groups/ensure-dam-daw", { method: "POST" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "No se pudieron preparar los grupos DAM y DAW");
+      await load();
+      setMessage("Grupos DAM y DAW disponibles. Selecciona el grupo de cada alumno.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudieron preparar los grupos");
+    } finally {
+      setCreatingGroups(false);
+    }
+  }
 
   return (
     <>
@@ -174,6 +195,16 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
                 <input name="identificadorExterno" placeholder="Opcional" defaultValue={editing?.identificadorExterno ?? ""} />
               </label>
             </div>
+            {missingDefaultGroups.length > 0 && (
+              <div className="notice-banner warning" role="status">
+                No están disponibles todos los grupos DAM y DAW del curso 2026/2027 en la base actual.
+                <button className="secondary compact-button" type="button"
+                  disabled={creatingGroups} onClick={() => void ensureDefaultGroups()}>
+                  {creatingGroups ? "Preparando grupos…" : "Crear grupos DAM y DAW"}
+                </button>
+                <small>Esta acción únicamente crea los grupos ausentes; no modifica alumnos ni matrículas.</small>
+              </div>
+            )}
             <label>
               Grupo académico
               <select name="grupoId" defaultValue={editing?.grupoId ?? ""} required={selectableGroups.length > 0}>
@@ -207,7 +238,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
             )}
             {!editing && <input type="hidden" name="activo" value="on" />}
             <div className="form-actions">
-              <button className="primary" type="submit" disabled={saving}>
+              <button className="primary" type="submit" disabled={saving || selectableGroups.length === 0}>
                 {saving ? "Guardando…" : editing ? "Guardar cambios" : "Guardar alumno"}
               </button>
               {editing && (
