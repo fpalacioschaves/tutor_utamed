@@ -18,6 +18,7 @@ type AgendaRange = "TODAY" | "TOMORROW" | "WEEK";
 type Props = {
   onOpenSession: (id: number) => void;
   onOpenTutorials: () => void;
+  onOpenTutorialSchedule: (id: number, start: string) => void;
   onOpenCalendar: () => void;
 };
 
@@ -61,7 +62,7 @@ function typeLabel(type: AgendaEvent["type"]) {
   return "Sesión teórica";
 }
 
-export function DashboardAgendaPanel({ onOpenSession, onOpenTutorials, onOpenCalendar }: Props) {
+export function DashboardAgendaPanel({ onOpenSession, onOpenTutorials, onOpenTutorialSchedule, onOpenCalendar }: Props) {
   const [events, setEvents] = useState<AgendaEvent[]>([]);
   const [range, setRange] = useState<AgendaRange>("TODAY");
   const [loading, setLoading] = useState(true);
@@ -139,7 +140,7 @@ export function DashboardAgendaPanel({ onOpenSession, onOpenTutorials, onOpenCal
               className={`dashboard-agenda-item dashboard-agenda-${event.type.toLowerCase().replaceAll("_", "-")}`}
               type="button"
               key={event.id}
-              onClick={() => event.source === "SESSION" ? onOpenSession(event.entityId) : onOpenTutorials()}
+              onClick={() => event.type === "TUTORIA_DUDAS" ? onOpenTutorialSchedule(event.entityId, event.start) : event.source === "SESSION" ? onOpenSession(event.entityId) : onOpenTutorials()}
             >
               <time>
                 {range === "WEEK" && <small>{formatDay(event.start)}</small>}
