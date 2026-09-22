@@ -773,3 +773,31 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .students-filter-toolbar { grid-template-columns: 1fr; }
   .students-filter-toolbar .search-field { grid-column: auto; }
 }
+
+
+/* Agenda de tutorías: un único registro de sesión con bloques reservables de 15 min. */
+.tutorial-slots-panel { margin: 1rem 0 1.5rem; }
+.tutorial-slot-list { display: grid; gap: .75rem; margin-top: 1.25rem; }
+.tutorial-slot-row {
+  display: grid;
+  grid-template-columns: minmax(135px, .7fr) minmax(170px, 1.2fr) minmax(190px, 1.4fr) auto;
+  gap: .85rem;
+  align-items: end;
+  border: 1px solid #e1e8f3;
+  border-radius: 12px;
+  padding: 1rem;
+  background: #fbfcff;
+}
+.tutorial-slot-time { display: flex; flex-direction: column; align-items: flex-start; gap: .4rem; align-self: center; }
+.tutorial-slot-time strong { white-space: nowrap; }
+.tutorial-slot-row label { display: grid; gap: .35rem; font-size: .86rem; font-weight: 600; min-width: 0; }
+.tutorial-slot-row input, .tutorial-slot-row select { width: 100%; min-width: 0; }
+.tutorial-slot-actions { display: flex; gap: .4rem; align-self: end; flex-wrap: wrap; }
+@media (max-width: 1100px) {
+  .tutorial-slot-row { grid-template-columns: minmax(120px, .7fr) minmax(170px, 1fr); }
+  .tutorial-slot-actions { align-self: center; }
+}
+@media (max-width: 600px) {
+  .tutorial-slot-row { grid-template-columns: 1fr; }
+  .tutorial-slot-time { flex-direction: row; align-items: center; }
+}
