@@ -14,6 +14,14 @@ async function main() {
     },
   });
 
+  for (const nombre of ["DAM", "DAW"]) {
+    await prisma.grupo.upsert({
+      where: { cursoAcademicoId_nombre: { cursoAcademicoId: course.id, nombre } },
+      update: {},
+      create: { cursoAcademicoId: course.id, nombre },
+    });
+  }
+
   const subjects = ["Lenguajes de Marcas", "Programación", "Entornos de Desarrollo"];
 
   for (const nombre of subjects) {
@@ -34,7 +42,7 @@ async function main() {
     });
   }
 
-  console.log("Base local preparada: curso 2026/2027 y tres asignaturas creadas.");
+  console.log("Base local preparada: curso 2026/2027, grupos DAM/DAW y tres asignaturas preparadas.");
 }
 
 main()
