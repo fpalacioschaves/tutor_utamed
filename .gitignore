@@ -6,6 +6,7 @@ api/prisma/dev.db
 api/prisma/dev.db-journal
 api/prisma/dev.pre-grupos.db
 api/prisma/dev.pre-update-*.db
+api/prisma/dev.pre-grupo-id-*.db
 local-content/
 local-data/
 local-backups/
