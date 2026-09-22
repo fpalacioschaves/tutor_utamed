@@ -773,3 +773,15 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .students-filter-toolbar { grid-template-columns: 1fr; }
   .students-filter-toolbar .search-field { grid-column: auto; }
 }
+
+/* Turnos individuales de quince minutos dentro de cada tutoría. */
+.tutorial-booking-panel { margin: 20px 0; }
+.tutorial-booking-panel .panel-heading > div { flex: 1; }
+.tutorial-booking-panel .panel-heading p.muted { margin: 7px 0; }
+.tutorial-booking-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(295px, 1fr)); gap: 12px; margin-top: 18px; }
+.tutorial-booking-row { display: grid; gap: 12px; min-width: 0; padding: 16px; border: 1px solid #dce5f1; border-radius: 12px; background: #f8fafc; }
+.tutorial-booking-row > div { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: #14243a; }
+.tutorial-booking-row > label { display: grid; gap: 6px; min-width: 0; font-weight: 700; font-size: 13px; }
+.tutorial-booking-row select { width: 100%; min-width: 0; background: white; padding: 10px 9px; border: 1px solid #cbd5e1; border-radius: 8px; color: #152337; font: inherit; }
+.tutorial-booking-row select:disabled { opacity: .7; cursor: wait; }
+.tutorial-booking-row small { color: #475569; }
