@@ -115,6 +115,11 @@ try {
   }
 
   const session = await sessionAt("2026-11-16T16:45:00Z");
+  const sessionDetail = await request(`/api/sessions/${session.id}`);
+  if (sessionDetail.alumnos.length !== 0)
+    throw Error("Una franja de tutoría no debe enviar asistencia colectiva del grupo.");
+  await request(`/api/sessions/${session.id}/records`,
+    json("PUT", { records: [{ alumnoId: damA.id, estadoAsistencia: "PRESENTE" }] }), 409);
   const route = `/api/sessions/${session.id}/booking-slots`;
   const initial = await request(route);
   if (initial.slots.length !== 3 || initial.alumnosElegibles.some(item => item.id === dawStudent.id)
