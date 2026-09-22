@@ -22,6 +22,7 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
       students,
       subjects,
       sessionsToday,
+      bookedTutorialsToday,
       pendingFollowUps,
       overdueFollowUpsCount,
       requestedTutorialsCount,
@@ -45,6 +46,13 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
         where: {
           inicio: { gte: startOfDay, lte: endOfDay },
           estado: { not: "CANCELADA" },
+          categoria: { not: "TUTORIA_DUDAS" },
+        },
+      }),
+      prisma.reservaBloqueTutoria.count({
+        where: {
+          sesion: { inicio: { gte: startOfDay, lte: endOfDay } },
+          estado: { in: ["PROGRAMADA", "REALIZADA"] },
         },
       }),
       prisma.seguimiento.count({ where: { estado: "PENDIENTE" } }),
@@ -63,6 +71,7 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
         where: {
           inicio: { gte: startOfDay, lte: endOfDay },
           estado: { not: "CANCELADA" },
+          categoria: { not: "TUTORIA_DUDAS" },
         },
         orderBy: { inicio: "asc" },
         include: {
@@ -116,7 +125,7 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
       students,
       subjects,
       sessionsToday,
-      tutorialsToday: tutorialsTodayCount,
+      tutorialsToday: tutorialsTodayCount + bookedTutorialsToday,
       pendingFollowUps,
       overdueFollowUps: overdueFollowUpsCount,
       requestedTutorials: requestedTutorialsCount,
