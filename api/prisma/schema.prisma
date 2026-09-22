@@ -257,6 +257,10 @@ model ReservaBloqueTutoria {
   sesionId  Int      @map("sesion_id")
   bloque    Int
   alumnoId  Int      @map("alumno_id")
+  estado    String   @default("PROGRAMADA")
+  motivo    String?
+  observaciones String?
+  acuerdos  String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   sesion    Sesion   @relation(fields: [sesionId], references: [id], onDelete: Restrict)
