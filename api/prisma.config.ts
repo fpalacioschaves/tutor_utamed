@@ -1,14 +1,11 @@
 import { defineConfig } from "prisma/config";
 
-// La CLI y Prisma Client deben apuntar a LA MISMA base SQLite:
-// api/prisma/dev.db. Nunca usar DATABASE_URL de otro proyecto.
-// Esta URL es relativa a api/prisma.config.ts (no a schema.prisma).
+// Prisma ORM v6: la URL SQLite está definida en prisma/schema.prisma
+// como file:./dev.db, relativa al esquema => api/prisma/dev.db.
+// No sobreescribir datasource.url desde aquí ni usar DATABASE_URL externo.
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
-  },
-  datasource: {
-    url: "file:./prisma/dev.db",
   },
 });
