@@ -127,7 +127,7 @@ export function TutorialBookingSlots({ sessionId }: { sessionId: number }) {
                       </option>
                     )}
                     {selectable.map((student) => (
-                      <option key={student.id} value={student.id}>{student.apellidos}, {student.nombre}</option>
+                      <option key={student.id} value={student.id} disabled={data.estado === "CANCELADA"}>{student.apellidos}, {student.nombre}</option>
                     ))}
                   </select>
                 </label>
