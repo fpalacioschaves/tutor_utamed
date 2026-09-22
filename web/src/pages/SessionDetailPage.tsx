@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AttendanceState, SessionCategory, SessionDetail } from "../types";
+import { TutorialSlotReservations } from "../components/TutorialSlotReservations";
 
 type Props = {
   sessionId: number;
@@ -17,6 +18,7 @@ type SessionDeletionImpact = {
   attendanceRecords: number;
   followUps: number;
   incidents: number;
+  reservations: number;
   hasLinkedData: boolean;
 };
 
@@ -165,6 +167,9 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
       const impactBody = await impactResponse.json().catch(() => ({}));
       if (!impactResponse.ok) throw new Error(impactBody.error ?? "No se pudo comprobar qué datos están asociados a la sesión");
       const impact = impactBody as SessionDeletionImpact;
+      if (impact.reservations > 0) {
+        throw new Error(`Esta tutoría tiene ${impact.reservations} bloques reservados. Libéralos antes de borrar la sesión.`);
+      }
 
       const date = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short" }).format(new Date(session.inicio));
       const linkedDetails = [
@@ -257,6 +262,10 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
       )}
 
       {message && <div className={`notice-banner ${success ? "success" : "error"}`} role={success ? "status" : "alert"}>{message}</div>}
+
+      {session.categoria === "TUTORIA_DUDAS" && session.tipo === "TUTORIA_GRUPAL" && (
+        <TutorialSlotReservations sessionId={sessionId} />
+      )}
 
       <section className="detail-toolbar" aria-label="Filtrar alumnado de la sesión">
         <label className="search-field">

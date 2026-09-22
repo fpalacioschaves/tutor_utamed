@@ -127,6 +127,7 @@ model Alumno {
   seguimientos         Seguimiento[]
   incidencias          Incidencia[]
   comunicaciones       Comunicacion[]
+  reservasTutoria      ReservaTutoria[]
 
   @@index([apellidos, nombre])
   @@index([grupoId])
@@ -240,12 +241,30 @@ model Sesion {
   asignatura             Asignatura        @relation(fields: [asignaturaId], references: [id])
   unidad                 Unidad?           @relation(fields: [unidadId], references: [id])
   registros              RegistroSesion[]
+  reservasTutoria         ReservaTutoria[]
   seguimientos           Seguimiento[]
   incidencias            Incidencia[]
 
   @@index([asignaturaId, inicio])
   @@index([inicio])
   @@map("sesiones")
+}
+
+// La sesión conserva su horario completo. Solo se guardan los bloques ocupados.
+model ReservaTutoria {
+  id            Int      @id @default(autoincrement())
+  sesionId      Int      @map("sesion_id")
+  bloqueInicio  DateTime @map("bloque_inicio")
+  alumnoId      Int      @map("alumno_id")
+  observaciones String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  sesion        Sesion   @relation(fields: [sesionId], references: [id], onDelete: Restrict)
+  alumno        Alumno   @relation(fields: [alumnoId], references: [id], onDelete: Restrict)
+
+  @@unique([sesionId, bloqueInicio])
+  @@index([alumnoId])
+  @@map("reservas_tutoria")
 }
 
 model RegistroSesion {

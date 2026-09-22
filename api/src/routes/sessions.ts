@@ -14,8 +14,23 @@ async function validateUnitForSubject(asignaturaId: number, unidadId: unknown) {
   return unit ? numericUnitId : undefined;
 }
 
+async function validateTutorialGroup(subjectId: number, tipo: string, categoria: string, groupInput: unknown) {
+  if (tipo !== "TUTORIA_GRUPAL" || categoria !== "TUTORIA_DUDAS") return null;
+  const name = typeof groupInput === "string" ? groupInput.trim() : "";
+  if (!name) return undefined;
+  const subject = await prisma.asignatura.findUnique({
+    where: { id: subjectId },
+    select: { cursoAcademicoId: true },
+  });
+  if (!subject) return undefined;
+  const group = await prisma.grupo.findFirst({
+    where: { nombre: name, cursoAcademicoId: subject.cursoAcademicoId, activo: true },
+  });
+  return group?.nombre;
+}
+
 async function getSessionDeletionImpact(sessionId: number) {
-  const [attendanceRecords, followUps, incidents] = await Promise.all([
+  const [attendanceRecords, followUps, incidents, reservations] = await Promise.all([
     prisma.registroSesion.count({ where: { sesionId: sessionId } }),
     prisma.seguimiento.count({
       where: {
@@ -26,13 +41,15 @@ async function getSessionDeletionImpact(sessionId: number) {
       },
     }),
     prisma.incidencia.count({ where: { sesionId: sessionId } }),
+    prisma.reservaTutoria.count({ where: { sesionId: sessionId } }),
   ]);
 
   return {
     attendanceRecords,
     followUps,
     incidents,
-    hasLinkedData: attendanceRecords > 0 || followUps > 0 || incidents > 0,
+    reservations,
+    hasLinkedData: attendanceRecords > 0 || followUps > 0 || incidents > 0 || reservations > 0,
   };
 }
 
@@ -90,6 +107,7 @@ sessionsRouter.post("/", async (req, res, next) => {
       fin,
       estado = "PROGRAMADA",
       observacionesGenerales,
+      grupoTutoria,
     } = req.body;
 
     if (!asignaturaId || !inicio || !fin) {
@@ -120,6 +138,12 @@ sessionsRouter.post("/", async (req, res, next) => {
       return;
     }
 
+    const resolvedGroup = await validateTutorialGroup(numericSubjectId, tipo, categoria, grupoTutoria);
+    if (resolvedGroup === undefined) {
+      res.status(400).json({ error: "Selecciona un grupo activo del curso académico de la tutoría." });
+      return;
+    }
+
     const session = await prisma.sesion.create({
       data: {
         asignaturaId: numericSubjectId,
@@ -132,6 +156,7 @@ sessionsRouter.post("/", async (req, res, next) => {
         fin: end,
         estado,
         origen: "MANUAL",
+        grupoTutoria: resolvedGroup,
         observacionesGenerales: observacionesGenerales || null,
       },
       include: { asignatura: true, unidad: true },
@@ -161,6 +186,7 @@ sessionsRouter.put("/:id", async (req, res, next) => {
       fin,
       estado,
       observacionesGenerales,
+      grupoTutoria,
     } = req.body;
 
     if (!asignaturaId || !inicio || !fin) {
@@ -213,6 +239,24 @@ sessionsRouter.put("/:id", async (req, res, next) => {
     }
 
     const resolvedCategory = categoria || existing.categoria || (tipo === "TUTORIA_GRUPAL" ? "TUTORIA_DUDAS" : "TEORICA");
+    const resolvedGroup = await validateTutorialGroup(numericSubjectId, tipo, resolvedCategory, grupoTutoria);
+    if (resolvedGroup === undefined) {
+      res.status(400).json({ error: "Selecciona un grupo activo del curso académico de la tutoría." });
+      return;
+    }
+
+    const bookings = await prisma.reservaTutoria.count({ where: { sesionId: id } });
+    if (bookings > 0 && (
+      existing.inicio.getTime() !== start.getTime() ||
+      existing.fin.getTime() !== end.getTime() ||
+      existing.grupoTutoria !== resolvedGroup ||
+      existing.asignaturaId !== numericSubjectId ||
+      existing.tipo !== tipo ||
+      existing.categoria !== resolvedCategory
+    )) {
+      res.status(409).json({ error: "La tutoría tiene bloques reservados. Libera sus reservas antes de modificar horario, asignatura, tipo o grupo." });
+      return;
+    }
 
     const session = await prisma.sesion.update({
       where: { id },
@@ -221,6 +265,7 @@ sessionsRouter.put("/:id", async (req, res, next) => {
         unidadId: validatedUnitId,
         tipo,
         categoria: resolvedCategory,
+        grupoTutoria: resolvedGroup,
         titulo: titulo ? String(titulo).trim() : null,
         // El campo tema se conserva únicamente por compatibilidad con
         // sesiones antiguas. Ya no se edita como dato separado.
@@ -274,6 +319,12 @@ sessionsRouter.delete("/:id", async (req, res, next) => {
     }
 
     const impact = await getSessionDeletionImpact(id);
+    if (impact.reservations > 0) {
+      res.status(409).json({
+        error: "Esta tutoría tiene bloques reservados. Libéralos antes de borrar la sesión; no se eliminarán reservas automáticamente.",
+      });
+      return;
+    }
 
     await prisma.$transaction([
       // Primero se eliminan todos los seguimientos vinculados directamente a
