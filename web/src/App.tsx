@@ -146,6 +146,7 @@ function App() {
             onOpenSession={openSession}
             onOpenStudent={openStudent}
             onOpenTutorials={() => navigate("Tutorías")}
+            onOpenTutorialSchedule={openTutorialSchedule}
             onOpenFollowUps={() => navigate("Seguimientos")}
             onOpenIncidents={() => navigate("Incidencias")}
             onOpenAlerts={() => navigate("Alertas")}
