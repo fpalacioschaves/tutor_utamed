@@ -88,7 +88,7 @@ studentsRouter.get("/:id/detail", async (req, res, next) => {
       .filter((enrollment) => enrollment.activa)
       .map((enrollment) => enrollment.asignaturaId);
 
-    const [records, activities, deliveries, tutorials, followUps, incidents, communications] = await Promise.all([
+    const [records, activities, deliveries, tutorials, bookedTutorials, followUps, incidents, communications] = await Promise.all([
       prisma.registroSesion.findMany({
         where: { alumnoId: id },
         include: {
@@ -113,6 +113,13 @@ studentsRouter.get("/:id/detail", async (req, res, next) => {
         where: { alumnoId: id },
         include: { asignatura: true },
         orderBy: [{ inicio: "desc" }, { fechaSolicitud: "desc" }],
+      }),
+      prisma.reservaBloqueTutoria.findMany({
+        where: { alumnoId: id },
+        include: {
+          sesion: { include: { asignatura: true } },
+        },
+        orderBy: { createdAt: "desc" },
       }),
       prisma.seguimiento.findMany({
         where: { alumnoId: id },
@@ -191,6 +198,25 @@ studentsRouter.get("/:id/detail", async (req, res, next) => {
         };
       });
 
+    // Las citas de quince minutos se muestran en la misma ficha e histórico
+    // que las tutorías anteriores, sin alterar sus registros ni sus fechas.
+    const scheduledTutorials = bookedTutorials.map((booking) => {
+      const inicio = new Date(booking.sesion.inicio.getTime() + booking.bloque * 15 * 60 * 1000);
+      return {
+        id: -booking.id,
+        fechaSolicitud: booking.createdAt,
+        inicio,
+        fin: new Date(inicio.getTime() + 15 * 60 * 1000),
+        estado: booking.estado,
+        motivo: booking.motivo,
+        observaciones: booking.observaciones,
+        acuerdos: booking.acuerdos,
+        asignatura: booking.sesion.asignatura,
+      };
+    });
+    const allTutorials = [...tutorials, ...scheduledTutorials].sort((a, b) =>
+      (b.inicio ?? b.fechaSolicitud).getTime() - (a.inicio ?? a.fechaSolicitud).getTime());
+
     const timeline = [
       ...records.map((record) => ({
         id: `sesion-${record.id}`,
@@ -211,7 +237,7 @@ studentsRouter.get("/:id/detail", async (req, res, next) => {
         estado: delivery.estado,
         calificacion: delivery.calificacion,
       })),
-      ...tutorials.map((tutorial) => ({
+      ...allTutorials.map((tutorial) => ({
         id: `tutoria-${tutorial.id}`,
         fecha: tutorial.inicio ?? tutorial.fechaSolicitud,
         tipo: "TUTORIA_INDIVIDUAL",
@@ -257,7 +283,7 @@ studentsRouter.get("/:id/detail", async (req, res, next) => {
         registros: records,
       },
       actividades: activityRows,
-      tutorias: tutorials,
+      tutorias: allTutorials,
       seguimientos: followUps,
       incidencias: incidents,
       comunicaciones: communications,

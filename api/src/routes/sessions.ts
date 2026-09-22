@@ -342,6 +342,14 @@ sessionsRouter.get("/:id", async (req, res, next) => {
       return;
     }
 
+    // La franja reservable NO es una clase de 27 alumnos: nunca se envía
+    // listado colectivo en esta ruta. Las reservas individuales se consultan
+    // exclusivamente por /api/sessions/:id/booking-slots.
+    if (session.tipo === "TUTORIA_GRUPAL" && session.categoria === "TUTORIA_DUDAS") {
+      res.json({ ...session, alumnos: [] });
+      return;
+    }
+
     const [enrollments, records] = await Promise.all([
       prisma.matricula.findMany({
         where: {
@@ -386,6 +394,13 @@ sessionsRouter.put("/:id/records", async (req, res, next) => {
     const session = await prisma.sesion.findUnique({ where: { id: sessionId } });
     if (!session) {
       res.status(404).json({ error: "Sesión no encontrada" });
+      return;
+    }
+
+    if (session.tipo === "TUTORIA_GRUPAL" && session.categoria === "TUTORIA_DUDAS") {
+      res.status(409).json({
+        error: "Las tutorías son citas individuales, no sesiones de asistencia colectiva. Gestiona cada alumno desde Tutorías.",
+      });
       return;
     }
 

@@ -785,3 +785,39 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .tutorial-booking-row select { width: 100%; min-width: 0; background: white; padding: 10px 9px; border: 1px solid #cbd5e1; border-radius: 8px; color: #152337; font: inherit; }
 .tutorial-booking-row select:disabled { opacity: .7; cursor: wait; }
 .tutorial-booking-row small { color: #475569; }
+
+/* Tutorías: horario fijo del centro y una cita individual por turno. */
+.fixed-tutorial-schedule { display: grid; gap: 18px; margin-bottom: 18px; }
+.fixed-tutorial-schedule .panel-heading { align-items: center; flex-wrap: wrap; }
+.fixed-tutorial-schedule .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.fixed-tutorial-check { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.fixed-tutorial-check input { width: auto; min-width: auto; }
+.fixed-tutorial-date-list { display: grid; gap: 12px; }
+.fixed-tutorial-date { border: 1px solid #dbe4ef; border-radius: 13px; background: #fff; overflow: hidden; }
+.fixed-tutorial-date.expanded { border-color: #95accd; }
+.fixed-tutorial-date-trigger { display: flex; gap: 18px; flex-wrap: wrap; width: 100%; align-items: center; justify-content: space-between; background: transparent; border: 0; padding: 17px; color: #111827; cursor: pointer; text-align: left; }
+.fixed-tutorial-date-trigger:hover { background: #f8fafc; }
+.fixed-tutorial-date-trigger > span:first-child { flex: 1; min-width: 180px; display: grid; gap: 5px; }
+.fixed-tutorial-date-trigger small { color: #64748b; }
+.fixed-tutorial-time { font-weight: 800; white-space: nowrap; }
+.fixed-tutorial-date-content { padding: 18px; border-top: 1px solid #e3eaf3; background: #f8fafc; }
+.individual-tutorials > p { margin: 0 0 14px; }
+.fixed-tutorial-slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); gap: 12px; }
+.fixed-tutorial-slot { display: grid; align-content: start; gap: 13px; min-width: 0; background: white; border: 1px solid #dbe4ef; border-radius: 11px; padding: 15px; }
+.fixed-tutorial-slot.booked { border-color: #95b5da; }
+.fixed-tutorial-slot-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.fixed-tutorial-slot-head strong { white-space: nowrap; }
+.fixed-tutorial-name { width: 100%; font-weight: 700; color: #111827; }
+.fixed-tutorial-picker, .fixed-tutorial-editor label { display: grid; gap: 7px; min-width: 0; font-size: 13px; font-weight: 750; color: #334155; }
+.fixed-tutorial-picker select, .fixed-tutorial-editor select, .fixed-tutorial-editor textarea { width: 100%; min-width: 0; padding: 10px 9px; border-radius: 8px; border: 1px solid #cad5e4; background: #fff; color: #152337; font: inherit; }
+.fixed-tutorial-details { display: grid; gap: 9px; font-size: 13px; }
+.fixed-tutorial-details > p { white-space: pre-line; overflow-wrap: anywhere; margin: 0; color: #475569; }
+.fixed-tutorial-editor { display: grid; gap: 12px; }
+.fixed-tutorial-editor .form-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.tutorial-legacy-archive { margin-top: 20px; }
+.tutorial-legacy-archive summary { font-weight: 800; color: #111827; cursor: pointer; }
+.tutorial-legacy-archive > p { margin-top: 12px; }
+.fixed-tutorial-legacy { display: flex; flex-direction: column; gap: 5px; border-top: 1px solid #e5e7eb; margin-top: 12px; padding-top: 12px; }
+.fixed-tutorial-legacy span { color: #475569; }
+.fixed-tutorial-legacy p { margin: 0; }
+@media(max-width:760px){ .fixed-tutorial-slots { grid-template-columns: 1fr; } .fixed-tutorial-date-trigger { gap: 10px; } }

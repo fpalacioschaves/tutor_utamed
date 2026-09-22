@@ -49,7 +49,7 @@ calendarRouter.get("/", async (req, res, next) => {
         source: "SESSION" as const,
         type: session.categoria || (session.tipo === "TUTORIA_GRUPAL" ? "TUTORIA_DUDAS" : "TEORICA"),
         title: session.titulo
-          || (session.tipo === "TUTORIA_GRUPAL" ? `Tutoría grupal · ${session.asignatura.nombre}` : session.unidad?.titulo || session.asignatura.nombre),
+          || (session.tipo === "TUTORIA_GRUPAL" ? `Turnos de tutoría · ${session.asignatura.nombre}` : session.unidad?.titulo || session.asignatura.nombre),
         subtitle: [
           session.asignatura.nombre,
           session.grupoTutoria ? `1.º ${session.grupoTutoria}` : session.asignatura.grupo || null,

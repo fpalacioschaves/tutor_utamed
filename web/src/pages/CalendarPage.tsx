@@ -24,6 +24,7 @@ type QuickCreateMode = "SESSION" | "TUTORIAL" | null;
 type Props = {
   onOpenSession: (id: number) => void;
   onOpenTutorial: (id: number) => void;
+  onOpenTutorialSchedule: (id: number, start: string) => void;
 };
 
 const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -78,7 +79,7 @@ function formatSelectedDate(date: Date) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-export function CalendarPage({ onOpenSession, onOpenTutorial }: Props) {
+export function CalendarPage({ onOpenSession, onOpenTutorial, onOpenTutorialSchedule }: Props) {
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -164,7 +165,8 @@ export function CalendarPage({ onOpenSession, onOpenTutorial }: Props) {
   }
 
   function openEvent(event: CalendarEvent) {
-    if (event.source === "SESSION") onOpenSession(event.entityId);
+    if (event.type === "TUTORIA_DUDAS") onOpenTutorialSchedule(event.entityId, event.start);
+    else if (event.source === "SESSION") onOpenSession(event.entityId);
     else onOpenTutorial(event.entityId);
   }
 
@@ -353,7 +355,7 @@ export function CalendarPage({ onOpenSession, onOpenTutorial }: Props) {
           <div className="calendar-day-actions">
             <span className="tag">{selectedEvents.length} evento{selectedEvents.length === 1 ? "" : "s"}</span>
             <button className="secondary compact-button" type="button" onClick={() => startQuickCreate("SESSION")}>+ Nueva sesión</button>
-            <button className="secondary compact-button" type="button" onClick={() => startQuickCreate("TUTORIAL")}>+ Nueva tutoría</button>
+            <small className="muted">Las tutorías se reservan en los turnos cerrados de «Tutorías».</small>
           </div>
         </div>
 
@@ -385,7 +387,7 @@ export function CalendarPage({ onOpenSession, onOpenTutorial }: Props) {
                     <option value="REPASO">Repaso</option>
                     <option value="REPASO_GENERAL">Repaso general</option>
                     <option value="SIMULACRO">Simulacro</option>
-                    <option value="TUTORIA_DUDAS">Tutoría / dudas</option>
+
                   </select>
                 </label>
                 <label>Hora inicio<input name="startTime" type="time" required /></label>

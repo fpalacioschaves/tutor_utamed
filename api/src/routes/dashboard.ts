@@ -22,6 +22,7 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
       students,
       subjects,
       sessionsToday,
+      bookedTutorialsToday,
       pendingFollowUps,
       overdueFollowUpsCount,
       requestedTutorialsCount,
@@ -48,6 +49,12 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
           estado: { not: "CANCELADA" },
         },
       }),
+      prisma.reservaBloqueTutoria.count({
+        where: {
+          sesion: { inicio: { gte: startOfDay, lte: endOfDay } },
+          estado: { in: ["PROGRAMADA", "REALIZADA"] },
+        },
+      }),
       prisma.seguimiento.count({ where: { estado: "PENDIENTE" } }),
       prisma.seguimiento.count({
         where: { estado: "PENDIENTE", fechaObjetivo: { lt: now } },
@@ -62,6 +69,7 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
       }),
       prisma.sesion.findMany({
         where: {
+          tipo: "CLASE",
           inicio: { gte: startOfDay, lte: endOfDay },
           estado: { not: "CANCELADA" },
         },
@@ -117,7 +125,7 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
       students,
       subjects,
       sessionsToday,
-      tutorialsToday: tutorialsTodayCount,
+      tutorialsToday: tutorialsTodayCount + bookedTutorialsToday,
       pendingFollowUps,
       overdueFollowUps: overdueFollowUpsCount,
       requestedTutorials: requestedTutorialsCount,
