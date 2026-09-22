@@ -42,6 +42,9 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [creatingGroups, setCreatingGroups] = useState(false);
+  const [studentsLoaded, setStudentsLoaded] = useState(false);
+  const [subjectsLoaded, setSubjectsLoaded] = useState(false);
+  const [groupsLoaded, setGroupsLoaded] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
   const [search, setSearch] = useState("");
   const [subjectFilter, setSubjectFilter] = useState<number | "">("");
@@ -49,32 +52,59 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ACTIVE");
   const formPanelRef = useRef<HTMLElement | null>(null);
 
-  async function load() {
+  async function load(): Promise<GroupOption[]> {
     setError("");
-    try {
-      const [studentsResponse, subjectsResponse, groupsResponse, statusResponse] = await Promise.all([
-        fetch("/api/students", { cache: "no-store" }),
-        fetch("/api/subjects", { cache: "no-store" }),
-        fetch("/api/groups", { cache: "no-store" }),
-        fetch("/api/database/status", { cache: "no-store" }),
-      ]);
-      if (!studentsResponse.ok || !subjectsResponse.ok || !groupsResponse.ok) {
-        const failedResponse = [studentsResponse, subjectsResponse, groupsResponse]
-          .find((response) => !response.ok)!;
-        const body = await failedResponse.json().catch(() => ({}));
-        throw new Error(body.error ?? `Error HTTP ${failedResponse.status} al cargar los alumnos o grupos`);
-      }
-      setStudents(await studentsResponse.json());
-      setSubjects(await subjectsResponse.json());
-      setGroups(await groupsResponse.json());
-      setDatabaseStatus(statusResponse.ok ? await statusResponse.json() : null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar alumnos");
+    const [studentsResponse, subjectsResponse, groupsResponse, statusResponse] = await Promise.all([
+      fetch("/api/students", { cache: "no-store" }),
+      fetch("/api/subjects", { cache: "no-store" }),
+      fetch("/api/groups", { cache: "no-store" }),
+      fetch("/api/database/status", { cache: "no-store" }),
+    ]);
+
+    // No ocultar asignaturas y grupos cuando SOLO falla la consulta de
+    // alumnos. La versión anterior tiraba los tres resultados a la vez.
+    if (statusResponse.ok) setDatabaseStatus(await statusResponse.json());
+
+    let availableGroups: GroupOption[] = [];
+    if (groupsResponse.ok) {
+      availableGroups = await groupsResponse.json();
+      setGroups(availableGroups);
+      setGroupsLoaded(true);
+    } else {
+      setGroupsLoaded(false);
     }
+    if (subjectsResponse.ok) {
+      setSubjects(await subjectsResponse.json());
+      setSubjectsLoaded(true);
+    } else {
+      setSubjectsLoaded(false);
+    }
+    if (studentsResponse.ok) {
+      setStudents(await studentsResponse.json());
+      setStudentsLoaded(true);
+    } else {
+      setStudentsLoaded(false);
+    }
+
+    const failed = [
+      { name: "alumnos", response: studentsResponse },
+      { name: "asignaturas", response: subjectsResponse },
+      { name: "grupos", response: groupsResponse },
+    ].filter((item) => !item.response.ok);
+    if (failed.length) {
+      const detail = await Promise.all(failed.map(async ({ name, response }) => {
+        const body = await response.json().catch(() => ({}));
+        return `${name}: ${body.error ?? `HTTP ${response.status}`}`;
+      }));
+      throw new Error(`Error al cargar ${detail.join("; ")}. No significa que los datos se hayan borrado.`);
+    }
+    return availableGroups;
   }
 
   useEffect(() => {
-    void load();
+    void load().catch((err) => {
+      setError(err instanceof Error ? err.message : "No se pudieron cargar los datos");
+    });
   }, []);
 
   const visibleStudents = useMemo(() => {
@@ -127,8 +157,8 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
       const wasEditing = Boolean(editing);
       formElement.reset();
       setEditing(null);
-      setMessage(wasEditing ? "Alumno actualizado correctamente." : "Alumno creado correctamente.");
       await load();
+      setMessage(wasEditing ? "Alumno actualizado correctamente." : "Alumno creado correctamente.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo guardar el alumno");
     } finally {
@@ -164,8 +194,12 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
       const response = await fetch("/api/groups/ensure-dam-daw", { method: "POST" });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error ?? "No se pudieron preparar los grupos DAM y DAW");
-      await load();
-      setMessage("Grupos DAM y DAW disponibles. Selecciona el grupo de cada alumno.");
+      const loadedGroups = await load();
+      const available = ["DAM", "DAW"].every((name) => loadedGroups.some((group) =>
+        group.activo && group.nombre.toUpperCase() === name && group.cursoAcademico.nombre === "2026/2027",
+      ));
+      if (!available) throw new Error("El servidor respondió, pero DAM y DAW no aparecen en la consulta de grupos.");
+      setMessage("Grupos DAM y DAW cargados y comprobados. Selecciona el grupo de cada alumno.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudieron preparar los grupos");
     } finally {
@@ -183,7 +217,13 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
         </div>
       </header>
 
-      {databaseStatus?.counts?.alumnos === 0 && (
+      {!studentsLoaded && databaseStatus?.counts?.alumnos !== null && databaseStatus?.counts?.alumnos !== undefined && (
+        <div className="notice-banner warning" role="alert">
+          La base SQLite contiene {databaseStatus.counts.alumnos} alumnos en <code>{databaseStatus.path}</code>,
+          pero la aplicación no ha podido cargar su listado. No se ha confirmado que hayan desaparecido.
+        </div>
+      )}
+      {databaseStatus?.counts?.alumnos === 0 && studentsLoaded && (
         <div className="notice-banner warning" role="alert">
           <strong>La base SQLite que está utilizando esta instalación contiene 0 alumnos.</strong>
           <p>Archivo utilizado: <code>{databaseStatus.path}</code></p>
@@ -240,7 +280,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
             )}
             <label>
               Grupo académico
-              <select name="grupoId" defaultValue={editing?.grupoId ?? ""} required={selectableGroups.length > 0}>
+              <select name="grupoId" defaultValue={editing?.grupoId ?? ""} required={selectableGroups.length > 0} disabled={!groupsLoaded}>
                 <option value="">Sin asignar</option>
                 {selectableGroups.map((group) => (
                   <option key={group.id} value={group.id}>{group.nombre} · {group.cursoAcademico.nombre}</option>
@@ -253,7 +293,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
             </label>
             <fieldset className="subject-checks">
               <legend>Asignaturas</legend>
-              {activeSubjects.length === 0 ? <p className="muted">No hay asignaturas activas.</p> : activeSubjects.map((subject) => {
+              {!subjectsLoaded ? <p className="form-error">No se pudieron consultar las asignaturas: no significa que no existan.</p> : activeSubjects.length === 0 ? <p className="muted">No hay asignaturas activas en la base conectada.</p> : activeSubjects.map((subject) => {
                 const checked = editing?.matriculas.some((enrollment) => enrollment.asignatura.id === subject.id) ?? false;
                 return (
                   <label key={subject.id}>
@@ -271,7 +311,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
             )}
             {!editing && <input type="hidden" name="activo" value="on" />}
             <div className="form-actions">
-              <button className="primary" type="submit" disabled={saving || selectableGroups.length === 0}>
+              <button className="primary" type="submit" disabled={saving || !groupsLoaded || !subjectsLoaded || !studentsLoaded || selectableGroups.length === 0}>
                 {saving ? "Guardando…" : editing ? "Guardar cambios" : "Guardar alumno"}
               </button>
               {editing && (
@@ -319,7 +359,9 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
             </label>
           </div>
 
-          {students.length === 0 ? (
+          {!studentsLoaded ? (
+            <div className="empty-state compact-empty"><strong>No se pudo cargar el listado.</strong><p>No se ha comprobado que falten alumnos: revisa el error de conexión mostrado arriba.</p></div>
+          ) : students.length === 0 ? (
             <div className="empty-state compact-empty"><strong>No hay alumnos todavía</strong><p>Crea el primero para poder probar una sesión.</p></div>
           ) : visibleStudents.length === 0 ? (
             <div className="empty-state compact-empty"><strong>No hay alumnos que coincidan con los filtros.</strong><p>Prueba con otro término o elimina algún filtro.</p></div>
