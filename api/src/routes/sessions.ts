@@ -15,7 +15,7 @@ async function validateUnitForSubject(asignaturaId: number, unidadId: unknown) {
 }
 
 async function getSessionDeletionImpact(sessionId: number) {
-  const [attendanceRecords, followUps, incidents] = await Promise.all([
+  const [attendanceRecords, followUps, incidents, bookings] = await Promise.all([
     prisma.registroSesion.count({ where: { sesionId: sessionId } }),
     prisma.seguimiento.count({
       where: {
@@ -26,13 +26,15 @@ async function getSessionDeletionImpact(sessionId: number) {
       },
     }),
     prisma.incidencia.count({ where: { sesionId: sessionId } }),
+    prisma.reservaBloqueTutoria.count({ where: { sesionId: sessionId } }),
   ]);
 
   return {
     attendanceRecords,
     followUps,
     incidents,
-    hasLinkedData: attendanceRecords > 0 || followUps > 0 || incidents > 0,
+    bookings,
+    hasLinkedData: attendanceRecords > 0 || followUps > 0 || incidents > 0 || bookings > 0,
   };
 }
 
@@ -214,6 +216,27 @@ sessionsRouter.put("/:id", async (req, res, next) => {
 
     const resolvedCategory = categoria || existing.categoria || (tipo === "TUTORIA_GRUPAL" ? "TUTORIA_DUDAS" : "TEORICA");
 
+    // Las reservas pertenecen a índices de 15 minutos dentro de la sesión.
+    // No permitir que una edición las deje fuera del horario ni transforme
+    // una tutoría reservada en una clase ordinaria.
+    const lastBooking = await prisma.reservaBloqueTutoria.findFirst({
+      where: { sesionId: id },
+      orderBy: { bloque: "desc" },
+      select: { bloque: true },
+    });
+    if (lastBooking) {
+      const duration = end.getTime() - start.getTime();
+      if (tipo !== "TUTORIA_GRUPAL" || resolvedCategory !== "TUTORIA_DUDAS"
+        || duration % (15 * 60 * 1000) !== 0
+        || duration < (lastBooking.bloque + 1) * 15 * 60 * 1000
+        || existing.asignaturaId !== numericSubjectId) {
+        res.status(409).json({
+          error: "La sesión tiene bloques reservados. Libera las reservas antes de reducir su duración, cambiar la asignatura o convertirla en otra categoría.",
+        });
+        return;
+      }
+    }
+
     const session = await prisma.sesion.update({
       where: { id },
       data: {
@@ -274,6 +297,10 @@ sessionsRouter.delete("/:id", async (req, res, next) => {
     }
 
     const impact = await getSessionDeletionImpact(id);
+    if (impact.bookings > 0) {
+      res.status(409).json({ error: "Esta tutoría tiene alumnos reservados. Libera sus bloques antes de borrar la sesión." });
+      return;
+    }
 
     await prisma.$transaction([
       // Primero se eliminan todos los seguimientos vinculados directamente a
