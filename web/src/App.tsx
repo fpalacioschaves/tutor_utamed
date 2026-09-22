@@ -25,6 +25,8 @@ function App() {
   const [view, setView] = useState<View>("dashboard");
   const [activeLabel, setActiveLabel] = useState("Dashboard");
   const [sessionId, setSessionId] = useState<number | null>(null);
+  const [tutorialFocusedId, setTutorialFocusedId] = useState<number | null>(null);
+  const [tutorialFocusedDate, setTutorialFocusedDate] = useState<string | null>(null);
   const [studentId, setStudentId] = useState<number | null>(null);
   const [activityId, setActivityId] = useState<number | null>(null);
   const [apiStatus, setApiStatus] = useState<"checking" | "ok" | "error">("checking");
@@ -45,6 +47,8 @@ function App() {
     setSessionId(null);
     setStudentId(null);
     setActivityId(null);
+    setTutorialFocusedId(null);
+    setTutorialFocusedDate(null);
     setActiveLabel(label);
     if (label === "Dashboard") setView("dashboard");
     else if (label === "Calendario") setView("calendar");
@@ -71,10 +75,22 @@ function App() {
     setActiveLabel("Sesiones");
   }
 
+  function openTutorialSchedule(id: number, date: string) {
+    setSessionId(null);
+    setStudentId(null);
+    setActivityId(null);
+    setTutorialFocusedId(id);
+    setTutorialFocusedDate(date);
+    setView("tutorials");
+    setActiveLabel("Tutorías");
+  }
+
   function openTutorial(_id: number) {
     setSessionId(null);
     setStudentId(null);
     setActivityId(null);
+    setTutorialFocusedId(null);
+    setTutorialFocusedDate(null);
     setView("tutorials");
     setActiveLabel("Tutorías");
   }
@@ -136,7 +152,7 @@ function App() {
             onOpenCalendar={() => navigate("Calendario")}
           />
         ) : view === "calendar" ? (
-          <CalendarPage onOpenSession={openSession} onOpenTutorial={openTutorial} />
+          <CalendarPage onOpenSession={openSession} onOpenTutorial={openTutorial} onOpenTutorialSchedule={openTutorialSchedule} />
         ) : view === "sessions" ? (
           <SessionsPage onOpenSession={openSession} />
         ) : view === "students" ? (
@@ -148,7 +164,7 @@ function App() {
         ) : view === "activities" ? (
           <ActivitiesPage onOpenActivity={openActivity} />
         ) : view === "tutorials" ? (
-          <TutorialsPage />
+          <TutorialsPage focusedSessionId={tutorialFocusedId} focusedDate={tutorialFocusedDate} />
         ) : view === "followups" ? (
           <FollowUpsPage />
         ) : view === "incidents" ? (
