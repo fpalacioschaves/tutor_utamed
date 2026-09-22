@@ -1,38 +1,49 @@
-# DAM / DAW: grupo académico de cada alumno
+# Tutor UTAMED — seguridad SQLite y grupos DAM/DAW
 
-## Alcance
+## Qué pasó
 
-La tabla `grupos` ya existía para cursos y asignaturas. Ahora `alumnos.grupo_id`
-es una referencia opcional a `grupos.id`. No se duplican las asignaturas
-compartidas de DAM y DAW. Las tutorías y las sesiones **no** se modifican
-en esta fase.
+El código anterior añadía los grupos al modelo Alumno, pero el arranque
+actualizaba automáticamente el esquema y podía crear una base nueva vacía
+si faltaba `api/prisma/dev.db`. La URL de la CLI de Prisma también se
+configuraba por separado mediante `DATABASE_URL`; eso permitía que la
+herramienta de actualización y la aplicación trabajaran sobre rutas distintas.
 
-## Actualización de la base local (SQLite)
+El archivo `dev.db`, cualquier respaldo `dev.pre-grupos.db` y
+`local-backups` están excluidos de GitHub. Subir código no recupera
+ni modifica por sí mismo una base que está en el equipo del profesor.
 
-1. Cierra Tutor UTAMED y conserva la base `api/prisma/dev.db`.
-2. Actualiza el código del repositorio (`git pull` tras incorporar los cambios).
-3. Ejecuta `INICIAR_TUTOR_UTAMED.bat` como de costumbre. El arranque invoca
-   `npm run db:update` y aplica el esquema sin forzar un reinicio de datos.
-   Alternativamente, con la aplicación cerrada, ejecuta `npm run db:update`.
-4. El proceso guarda **una sola vez**, si existía la base,
-   `api/prisma/dev.pre-grupos.db`, antes de cambiar el esquema. Esa copia
-   está excluida de GitHub. No la borres hasta comprobar los alumnos.
-5. Se crean los grupos DAM y DAW para cada curso activo. En alumnado sin
-   grupo se revisa `notas_generales` y se asigna un único grupo solo cuando
-   hay una coincidencia inequívoca con DAM o DAW y un curso identificable
-   por sus matrículas (o un único curso activo si carece de matrículas).
-6. En pantalla **Alumnos** puedes filtrar, revisar y corregir el grupo;
-   la ficha individual muestra el mismo dato.
+## Cambios de seguridad
 
-## Salvaguardas
+- `INICIAR_TUTOR_UTAMED.bat` **no crea una base nueva** si falta `dev.db`.
+- El arranque habitual **no aplica cambios de esquema ni reasigna alumnos**.
+- El comando `db:reset` queda deshabilitado.
+- La ruta SQLite de Prisma ORM v6 se define una sola vez en
+  `api/prisma/schema.prisma`: `file:./dev.db`.
+- `npm run db:update` genera antes una copia SQLite consolidada mediante
+  la API de respaldo de SQLite; comprueba integridad y los recuentos de
+  alumnos, matrículas, grupos y cursos; si no se puede respaldar, aborta.
+  El archivo `dev.pre-update-<fecha>.db` se guarda junto a `dev.db`,
+  sin sustituir las copias que ya existan.
+- La asignación desde notas a grupos **no es automática al arrancar**.
+  Existe como operación aparte: `npm run db:assign-groups -w api`.
+  No la ejecutes hasta localizar y verificar la base que contiene tus alumnos.
 
-- El proceso no modifica las notas generales originales ni altera
-  matrículas, asistencias, actividades ni tutorías.
-- Nunca reemplaza un grupo ya asignado (ni siquiera en posteriores arranques).
-- Si la descripción menciona ambos grupos o ninguno, el alumno queda
-  **sin asignar**, y el comando informa de sus ID para revisión manual.
-- El script es idempotente: se puede ejecutar de nuevo sin duplicar grupos.
-- Para restaurar la copia previa, cierra la aplicación y conserva por
-  separado la base actual antes de sustituir `dev.db`.
-- La base SQLite real permanece exclusivamente en el equipo del profesor;
-  la copia no se publica ni se adjunta al repositorio.
+## Selector DAM / DAW
+
+En **Alumnos**, cuando faltan DAM o DAW del curso 2026/2027, aparece
+«Crear grupos DAM y DAW». Esta acción crea solamente esos grupos
+en un curso académico 2026/2027 **ya existente**. No toca alumnos,
+matrículas, sesiones, tutorías ni contenidos. Si el curso no existe,
+muestra un error; NO crea un curso falso para ocultar que se ha abierto
+una base distinta de la original.
+
+Si la base abierta contiene cero alumnos, la pantalla muestra la ruta
+exacta del archivo y los recuentos de las copias locales que encuentre.
+Es una consulta de solo lectura; no ejecuta una restauración.
+
+## Datos perdidos
+
+Esta revisión de código **no recupera** los alumnos que falten en el
+archivo actual. Solo una base anterior que contenga esos datos permitiría
+restaurarlos. Nunca sustituyas la base actual sin conservar antes los
+archivos y sin comprobar los datos del archivo candidato.
