@@ -33,7 +33,7 @@ jobs:
           import { DatabaseSync } from 'node:sqlite';
           import { readdirSync } from 'node:fs';
           const current = new DatabaseSync('api/prisma/dev.db', { readOnly: true });
-          const backupName = readdirSync('api/prisma').find(name => /^dev\\.pre-update-.*\\.db$/.test(name));
+          const backupName = readdirSync('api/prisma').find(name => name.startsWith('dev.pre-update-') && name.endsWith('.db'));
           if (!backupName) throw Error('Falta copia pre-update');
           const copy = new DatabaseSync('api/prisma/' + backupName, { readOnly: true });
           const count = db => Number(db.prepare('SELECT COUNT(*) AS count FROM alumnos').get().count);
