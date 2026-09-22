@@ -74,6 +74,8 @@ try {
         );
         CREATE UNIQUE INDEX "reservas_bloques_tutoria_sesion_id_bloque_key"
           ON "reservas_bloques_tutoria" ("sesion_id", "bloque");
+        CREATE UNIQUE INDEX "reservas_bloques_tutoria_sesion_id_alumno_id_key"
+          ON "reservas_bloques_tutoria" ("sesion_id", "alumno_id");
         CREATE INDEX "reservas_bloques_tutoria_alumno_id_idx"
           ON "reservas_bloques_tutoria" ("alumno_id");
       `);
