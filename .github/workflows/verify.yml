@@ -43,3 +43,5 @@ jobs:
           NODE
       - name: Verificar reparación desde esquema heredado y endpoints de alumnos
         run: node api/scripts/test-student-group-repair.mjs
+      - name: Verificar reservas manuales y respaldo SQLite
+        run: node api/scripts/test-tutorial-slots.mjs
