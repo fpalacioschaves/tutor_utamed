@@ -3,6 +3,14 @@ import { prisma } from "../lib/prisma";
 
 export const tutorialBookingsRouter = Router();
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
+const BOOKING_STATES = new Set(["PROGRAMADA", "REALIZADA", "CANCELADA", "NO_PRESENTADO"]);
+
+async function ensureBookingsAvailable() {
+  const rows = await prisma.$queryRawUnsafe<Array<{ name: string }>>(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='reservas_bloques_tutoria'",
+  );
+  return rows.length > 0;
+}
 
 function positiveInteger(value: unknown) {
   const n = Number(value);
@@ -37,6 +45,12 @@ tutorialBookingsRouter.get("/:id/booking-slots", async (req, res, next) => {
       return;
     }
 
+    if (!(await ensureBookingsAvailable())) {
+      res.status(503).json({
+        error: "La base abierta aún no tiene la tabla de reservas. Cierra Tutor UTAMED y arranca de nuevo con INICIAR_TUTOR_UTAMED.bat; no ejecutes setup ni reset.",
+      });
+      return;
+    }
     const total = sessionBlockCount(session);
     const reservations = await prisma.reservaBloqueTutoria.findMany({
       where: { sesionId: id },
@@ -51,13 +65,11 @@ tutorialBookingsRouter.get("/:id/booking-slots", async (req, res, next) => {
       })
       : null;
 
+    // Solo alumnado del grupo de la tutoría. No se muestra un listado
+    // colectivo de asistencia ni el alumnado del otro ciclo.
     const eligibleStudents = group
       ? await prisma.alumno.findMany({
-        where: {
-          activo: true,
-          grupoId: group.id,
-          matriculas: { some: { asignaturaId: session.asignaturaId, activa: true } },
-        },
+        where: { activo: true, grupoId: group.id },
         select: { id: true, nombre: true, apellidos: true },
         orderBy: [{ apellidos: "asc" }, { nombre: "asc" }],
       })
@@ -82,6 +94,10 @@ tutorialBookingsRouter.get("/:id/booking-slots", async (req, res, next) => {
             id: reservation.id,
             alumnoId: reservation.alumnoId,
             alumno: reservation.alumno,
+            estado: reservation.estado,
+            motivo: reservation.motivo,
+            observaciones: reservation.observaciones,
+            acuerdos: reservation.acuerdos,
           }
           : null,
       };
@@ -125,8 +141,22 @@ tutorialBookingsRouter.put("/:id/booking-slots/:block", async (req, res, next) =
       return;
     }
 
+    if (!(await ensureBookingsAvailable())) {
+      res.status(503).json({
+        error: "No se ha creado la tabla de reservas de esta instalación. Cierra y vuelve a arrancar Tutor UTAMED, sin ejecutar setup ni reset.",
+      });
+      return;
+    }
+    const current = await prisma.reservaBloqueTutoria.findUnique({
+      where: { sesionId_bloque: { sesionId: sessionId, bloque } },
+    });
     const input = req.body?.alumnoId;
     if (input === null) {
+      if (current && (current.motivo || current.observaciones || current.acuerdos)
+          && req.body?.confirmReplace !== true) {
+        res.status(409).json({ error: "Este turno tiene notas o acuerdos. Confirma expresamente su eliminación antes de liberarlo." });
+        return;
+      }
       await prisma.reservaBloqueTutoria.deleteMany({ where: { sesionId: sessionId, bloque } });
       res.json({ bloque, reserva: null });
       return;
@@ -153,15 +183,12 @@ tutorialBookingsRouter.put("/:id/booking-slots/:block", async (req, res, next) =
       return;
     }
     const student = await prisma.alumno.findFirst({
-      where: {
-        id: alumnoId, activo: true, grupoId: group.id,
-        matriculas: { some: { asignaturaId: session.asignaturaId, activa: true } },
-      },
+      where: { id: alumnoId, activo: true, grupoId: group.id },
       select: { id: true },
     });
     if (!student) {
       res.status(400).json({
-        error: "El alumno debe estar activo, matriculado en esta asignatura y pertenecer al grupo DAM/DAW de la tutoría.",
+        error: "El alumno debe estar activo y pertenecer al grupo DAM/DAW de esta tutoría.",
       });
       return;
     }
@@ -174,14 +201,81 @@ tutorialBookingsRouter.put("/:id/booking-slots/:block", async (req, res, next) =
       return;
     }
 
+    if (current && current.alumnoId !== alumnoId
+        && (current.motivo || current.observaciones || current.acuerdos)
+        && req.body?.confirmReplace !== true) {
+      res.status(409).json({
+        error: "El turno tiene notas o acuerdos del alumno anterior. Confirma expresamente su sustitución.",
+      });
+      return;
+    }
+
     const reservation = await prisma.reservaBloqueTutoria.upsert({
       where: { sesionId_bloque: { sesionId: sessionId, bloque } },
-      update: { alumnoId },
+      update: current?.alumnoId === alumnoId
+        ? { alumnoId }
+        : { alumnoId, estado: "PROGRAMADA", motivo: null, observaciones: null, acuerdos: null },
       create: { sesionId: sessionId, bloque, alumnoId },
       include: { alumno: { select: { id: true, nombre: true, apellidos: true, activo: true } } },
     });
-    res.json({ bloque, reserva: { id: reservation.id, alumnoId, alumno: reservation.alumno } });
+    res.json({ bloque, reserva: {
+      id: reservation.id, alumnoId, alumno: reservation.alumno,
+      estado: reservation.estado, motivo: reservation.motivo,
+      observaciones: reservation.observaciones, acuerdos: reservation.acuerdos,
+    } });
   } catch (error) {
     next(error);
   }
+});
+
+tutorialBookingsRouter.patch("/:id/booking-slots/:block/notes", async (req, res, next) => {
+  try {
+    const sesionId = positiveInteger(req.params.id);
+    const bloque = Number(req.params.block);
+    if (!sesionId || !Number.isInteger(bloque) || bloque < 0) {
+      res.status(400).json({ error: "Sesión o turno no válido." });
+      return;
+    }
+    if (!(await ensureBookingsAvailable())) {
+      res.status(503).json({ error: "La tabla de reservas todavía no está disponible en la base SQLite abierta." });
+      return;
+    }
+    const session = await prisma.sesion.findUnique({ where: { id: sesionId } });
+    if (!session || !isPersonalBookingSession(session)) {
+      res.status(404).json({ error: "Tutoría no encontrada." });
+      return;
+    }
+    const reservation = await prisma.reservaBloqueTutoria.findUnique({
+      where: { sesionId_bloque: { sesionId, bloque } },
+    });
+    if (!reservation) {
+      res.status(404).json({ error: "Este turno no está reservado para ningún alumno." });
+      return;
+    }
+    const { estado, motivo, observaciones, acuerdos } = req.body ?? {};
+    if (!BOOKING_STATES.has(estado)) {
+      res.status(400).json({ error: "Estado de tutoría individual no válido." });
+      return;
+    }
+    if ([motivo, observaciones, acuerdos].some((value) =>
+      typeof value !== "string" || value.length > 20000)) {
+      res.status(400).json({ error: "Los campos de tutoría deben ser texto de hasta 20.000 caracteres." });
+      return;
+    }
+    const updated = await prisma.reservaBloqueTutoria.update({
+      where: { id: reservation.id },
+      data: {
+        estado,
+        motivo: motivo.trim() || null,
+        observaciones: observaciones.trim() || null,
+        acuerdos: acuerdos.trim() || null,
+      },
+      include: { alumno: { select: { id: true, nombre: true, apellidos: true, activo: true } } },
+    });
+    res.json({ bloque, reserva: {
+      id: updated.id, alumnoId: updated.alumnoId, alumno: updated.alumno,
+      estado: updated.estado, motivo: updated.motivo,
+      observaciones: updated.observaciones, acuerdos: updated.acuerdos,
+    } });
+  } catch (error) { next(error); }
 });
