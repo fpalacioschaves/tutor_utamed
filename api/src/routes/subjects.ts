@@ -40,7 +40,7 @@ subjectsRouter.get("/", async (req, res, next) => {
         _count: {
           select: {
             matriculas: { where: { activa: true, alumno: { activo: true } } },
-            sesiones: true,
+            sesiones: { where: { tipo: "CLASE" } },
             unidades: true,
             actividades: true,
           },
@@ -102,7 +102,7 @@ subjectsRouter.post("/", async (req, res, next) => {
         _count: {
           select: {
             matriculas: { where: { activa: true, alumno: { activo: true } } },
-            sesiones: true,
+            sesiones: { where: { tipo: "CLASE" } },
             unidades: true,
             actividades: true,
           },
@@ -188,7 +188,7 @@ subjectsRouter.put("/:id", async (req, res, next) => {
         _count: {
           select: {
             matriculas: { where: { activa: true, alumno: { activo: true } } },
-            sesiones: true,
+            sesiones: { where: { tipo: "CLASE" } },
             unidades: true,
             actividades: true,
           },
@@ -219,7 +219,7 @@ subjectsRouter.get("/:id/units", async (req, res, next) => {
     const units = await prisma.unidad.findMany({
       where: { asignaturaId: subjectId },
       orderBy: [{ orden: "asc" }, { titulo: "asc" }],
-      include: { _count: { select: { sesiones: true, actividades: true } } },
+      include: { _count: { select: { sesiones: { where: { tipo: "CLASE" } }, actividades: true } } },
     });
 
     res.json(units);
@@ -261,7 +261,7 @@ subjectsRouter.post("/:id/units", async (req, res, next) => {
         descripcion: nullableText(req.body?.descripcion),
         activa: typeof req.body?.activa === "boolean" ? req.body.activa : true,
       },
-      include: { _count: { select: { sesiones: true, actividades: true } } },
+      include: { _count: { select: { sesiones: { where: { tipo: "CLASE" } }, actividades: true } } },
     });
 
     res.status(201).json(unit);
@@ -304,7 +304,7 @@ subjectsRouter.put("/:subjectId/units/:unitId", async (req, res, next) => {
         descripcion: nullableText(req.body?.descripcion),
         activa: typeof req.body?.activa === "boolean" ? req.body.activa : existing.activa,
       },
-      include: { _count: { select: { sesiones: true, actividades: true } } },
+      include: { _count: { select: { sesiones: { where: { tipo: "CLASE" } }, actividades: true } } },
     });
 
     res.json(unit);
