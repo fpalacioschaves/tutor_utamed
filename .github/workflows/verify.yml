@@ -41,3 +41,5 @@ jobs:
           console.log('Prueba SQLite: alumno preservado y copia verificada');
           copy.close(); current.close();
           NODE
+      - name: Verificar reparación desde esquema heredado y endpoints de alumnos
+        run: node api/scripts/test-student-group-repair.mjs
