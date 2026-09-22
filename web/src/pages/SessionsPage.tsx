@@ -53,7 +53,6 @@ export function SessionsPage({ onOpenSession }: Props) {
   const [search, setSearch] = useState("");
   const [filterSubjectId, setFilterSubjectId] = useState<number | "">("");
   const [filterType, setFilterType] = useState<"" | SessionCategory>("");
-  const [filterGroup, setFilterGroup] = useState<"" | "DAM" | "DAW">("");
   const [filterState, setFilterState] = useState<"" | Session["estado"]>("");
   const [period, setPeriod] = useState<PeriodFilter>("ALL");
   const formPanelRef = useRef<HTMLElement | null>(null);
@@ -67,7 +66,8 @@ export function SessionsPage({ onOpenSession }: Props) {
         fetch("/api/subjects"),
       ]);
       if (!sessionsResponse.ok || !subjectsResponse.ok) throw new Error("No se pudieron cargar los datos");
-      setSessions(await sessionsResponse.json());
+      const rows = (await sessionsResponse.json()) as Session[];
+      setSessions(rows.filter((item) => item.categoria !== "TUTORIA_DUDAS"));
       setSubjects(await subjectsResponse.json());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar sesiones");
@@ -112,7 +112,6 @@ export function SessionsPage({ onOpenSession }: Props) {
       .filter((session) => {
         if (filterSubjectId !== "" && session.asignatura.id !== filterSubjectId) return false;
         if (filterType && session.categoria !== filterType) return false;
-        if (filterGroup && session.grupoTutoria !== filterGroup) return false;
         if (filterState && session.estado !== filterState) return false;
 
         const start = new Date(session.inicio).getTime();
@@ -131,7 +130,7 @@ export function SessionsPage({ onOpenSession }: Props) {
         return haystack.includes(query);
       })
       .sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime());
-  }, [sessions, search, filterSubjectId, filterType, filterGroup, filterState, period]);
+  }, [sessions, search, filterSubjectId, filterType, filterState, period]);
 
   function startCreating() {
     setEditing(null);
@@ -220,8 +219,8 @@ export function SessionsPage({ onOpenSession }: Props) {
       <header className="page-header">
         <div>
           <p className="eyebrow">DOCENCIA</p>
-          <h2>Sesiones</h2>
-          <p>Consulta todas las clases y tutorías grupales, abre una sesión para pasar asistencia y edítala cuando lo necesites.</p>
+          <h2>Sesiones de clase</h2>
+          <p>Aquí se gestionan las clases y su asistencia. Las citas individuales y sus horarios cerrados están en Tutorías.</p>
         </div>
         <button className="primary" type="button" onClick={startCreating}>Nueva sesión</button>
       </header>
@@ -278,7 +277,7 @@ export function SessionsPage({ onOpenSession }: Props) {
             <label>
               Categoría
               <select name="categoria" defaultValue={editing?.categoria ?? "TEORICA"}>
-                {(Object.entries(SESSION_CATEGORY_LABELS) as Array<[SessionCategory, string]>).map(([value, label]) => (
+                {(Object.entries(SESSION_CATEGORY_LABELS) as Array<[SessionCategory, string]>).filter(([value]) => value !== "TUTORIA_DUDAS").map(([value, label]) => (
                   <option value={value} key={value}>{label}</option>
                 ))}
               </select>
@@ -358,17 +357,9 @@ export function SessionsPage({ onOpenSession }: Props) {
             Categoría
             <select value={filterType} onChange={(event) => setFilterType(event.target.value as typeof filterType)}>
               <option value="">Todas</option>
-              {(Object.entries(SESSION_CATEGORY_LABELS) as Array<[SessionCategory, string]>).map(([value, label]) => (
+              {(Object.entries(SESSION_CATEGORY_LABELS) as Array<[SessionCategory, string]>).filter(([value]) => value !== "TUTORIA_DUDAS").map(([value, label]) => (
                 <option value={value} key={value}>{label}</option>
               ))}
-            </select>
-          </label>
-          <label>
-            Tutorías de grupo
-            <select value={filterGroup} onChange={(event) => setFilterGroup(event.target.value as typeof filterGroup)}>
-              <option value="">Todos los grupos</option>
-              <option value="DAM">DAM</option>
-              <option value="DAW">DAW</option>
             </select>
           </label>
           <label>
