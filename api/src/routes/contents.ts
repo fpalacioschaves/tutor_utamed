@@ -35,7 +35,7 @@ contentsRouter.get("/", async (req, res, next) => {
       include: {
         unidades: {
           orderBy: [{ orden: "asc" }, { titulo: "asc" }],
-          include: { _count: { select: { sesiones: true, actividades: true } } },
+          include: { _count: { select: { sesiones: { where: { tipo: "CLASE" } }, actividades: true } } },
         },
       },
     });
@@ -106,7 +106,7 @@ contentsRouter.post("/units", async (req, res, next) => {
         horasPrevistas,
         activa: typeof req.body?.activa === "boolean" ? req.body.activa : true,
       },
-      include: { _count: { select: { sesiones: true, actividades: true } } },
+      include: { _count: { select: { sesiones: { where: { tipo: "CLASE" } }, actividades: true } } },
     });
 
     res.status(201).json(unit);
@@ -162,7 +162,7 @@ contentsRouter.put("/units/:id", async (req, res, next) => {
         horasPrevistas,
         activa: typeof req.body?.activa === "boolean" ? req.body.activa : existing.activa,
       },
-      include: { _count: { select: { sesiones: true, actividades: true } } },
+      include: { _count: { select: { sesiones: { where: { tipo: "CLASE" } }, actividades: true } } },
     });
 
     res.json(unit);
