@@ -106,7 +106,7 @@ export function DashboardPage({
         <article>
           <span>Sesiones hoy</span>
           <strong>{summary.sessionsToday}</strong>
-          <small>Clases y tutorías grupales</small>
+          <small>Solo clases, sin tutorías</small>
         </article>
         <article>
           <span>Tutorías hoy</span>
