@@ -123,6 +123,25 @@ try {
   const assign = (block, alumnoId) => request(`${route}/${block}`, json("PUT", { alumnoId }));
   await assign(0, damA.id);
   await assign(1, damB.id);
+  const schedule = await request(`/api/tutorials/schedule?from=2026-11-01T00%3A00%3A00Z&to=2026-12-01T00%3A00%3A00Z`);
+  if (!schedule.some((entry) => entry.id === session.id && entry._count.reservasTutoria === 2))
+    throw Error("El calendario cerrado no muestra la franja y sus reservas.");
+  await request(`${route}/0/notes`, json("PATCH", {
+    estado: "REALIZADA", motivo: "Consulta XML",
+    observaciones: "Resuelta la duda de XSD", acuerdos: "Repasar validación XML",
+  }));
+  const bookedDetails = await request(route);
+  if (bookedDetails.slots[0].reserva?.estado !== "REALIZADA"
+      || bookedDetails.slots[0].reserva?.acuerdos !== "Repasar validación XML")
+    throw Error("No se guardan las notas de una cita individual.");
+  const studentDetails = await request(`/api/students/${damA.id}/detail`);
+  if (!studentDetails.tutorias.some((item) => item.estado === "REALIZADA"
+    && item.observaciones === "Resuelta la duda de XSD"
+    && new Date(item.fin).getTime() - new Date(item.inicio).getTime() === 900000)
+    || !studentDetails.cronologia.some((item) => item.tipo === "TUTORIA_INDIVIDUAL"
+      && item.detalle === "Resuelta la duda de XSD"))
+    throw Error("La cita individual no aparece en la ficha y cronología del alumno.");
+  await request(`${route}/0`, json("PUT", { alumnoId: null }), 409);
   await request(`${route}/2`, json("PUT", { alumnoId: damA.id }), 409);
   await request(`${route}/2`, json("PUT", { alumnoId: dawStudent.id }), 400);
   await request(`${route}/3`, json("PUT", { alumnoId: damA.id }), 400);
@@ -134,7 +153,8 @@ try {
     fin: "2026-11-16T16:15:00Z", estado: "PROGRAMADA",
   };
   await request(`/api/sessions/${session.id}`, json("PUT", wouldLoseReservedBlock), 409);
-  await assign(0, null);
+  await request(`${route}/0`, json("PUT", { alumnoId: null, confirmReplace: true }));
+  
   const result = await request(route);
   if (result.slots[0].reserva !== null || result.slots[1].reserva?.alumnoId !== damB.id)
     throw Error("Liberar un bloque ha modificado otra reserva.");
