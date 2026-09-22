@@ -14,7 +14,7 @@
     "db:reset": "node scripts/reset-disabled.mjs",
     "seed": "tsx prisma/seed.ts",
     "db:update": "node scripts/backup-before-groups.mjs && prisma db push && prisma generate",
-    "predev": "prisma generate",
+    "predev": "node scripts/check-db-present.mjs && prisma generate",
     "db:assign-groups": "tsx prisma/assign-student-groups.ts"
   },
   "dependencies": {
