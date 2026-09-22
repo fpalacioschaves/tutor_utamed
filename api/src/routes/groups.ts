@@ -29,6 +29,40 @@ groupsRouter.get("/", async (req, res, next) => {
   }
 });
 
+// Solo crea los dos grupos de primer curso en un curso YA existente.
+// No crea una base nueva, ni alumnos, ni asignaturas; no modifica matrícula.
+groupsRouter.post("/ensure-dam-daw", async (_req, res, next) => {
+  try {
+    const course = await prisma.cursoAcademico.findUnique({
+      where: { nombre: "2026/2027" },
+      select: { id: true },
+    });
+    if (!course) {
+      res.status(409).json({
+        error: "En esta base SQLite no existe el curso 2026/2027. No se ha creado ni modificado ningún grupo. Comprueba que la aplicación está usando tu base de datos original.",
+      });
+      return;
+    }
+
+    const groups = await prisma.$transaction(async (tx) => {
+      const result = [];
+      for (const nombre of ["DAM", "DAW"] as const) {
+        const group = await tx.grupo.upsert({
+          where: { cursoAcademicoId_nombre: { cursoAcademicoId: course.id, nombre } },
+          create: { cursoAcademicoId: course.id, nombre, activo: true },
+          update: {},
+          include: { cursoAcademico: true },
+        });
+        result.push(group);
+      }
+      return result;
+    });
+    res.json({ groups });
+  } catch (error) {
+    next(error);
+  }
+});
+
 groupsRouter.post("/", async (req, res, next) => {
   try {
     const cursoAcademicoId = positiveInteger(req.body?.cursoAcademicoId);
