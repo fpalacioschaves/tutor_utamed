@@ -20,7 +20,7 @@ groupsRouter.get("/", async (req, res, next) => {
       orderBy: [{ activo: "desc" }, { nombre: "asc" }],
       include: {
         cursoAcademico: true,
-        _count: { select: { asignaturas: true } },
+        _count: { select: { asignaturas: true, alumnos: true } },
       },
     });
     res.json(groups);
@@ -61,7 +61,7 @@ groupsRouter.post("/", async (req, res, next) => {
         descripcion,
         activo: typeof req.body?.activo === "boolean" ? req.body.activo : true,
       },
-      include: { cursoAcademico: true, _count: { select: { asignaturas: true } } },
+      include: { cursoAcademico: true, _count: { select: { asignaturas: true, alumnos: true } } },
     });
 
     res.status(201).json(group);
@@ -122,7 +122,7 @@ groupsRouter.put("/:id", async (req, res, next) => {
 
       return tx.grupo.findUnique({
         where: { id },
-        include: { cursoAcademico: true, _count: { select: { asignaturas: true } } },
+        include: { cursoAcademico: true, _count: { select: { asignaturas: true, alumnos: true } } },
       });
     });
 
@@ -142,14 +142,14 @@ groupsRouter.delete("/:id", async (req, res, next) => {
 
     const group = await prisma.grupo.findUnique({
       where: { id },
-      include: { _count: { select: { asignaturas: true } } },
+      include: { _count: { select: { asignaturas: true, alumnos: true } } },
     });
     if (!group) {
       res.status(404).json({ error: "Grupo no encontrado" });
       return;
     }
-    if (group._count.asignaturas > 0) {
-      res.status(409).json({ error: "No puedes eliminar un grupo que tiene asignaturas asociadas. Puedes marcarlo como inactivo." });
+    if (group._count.asignaturas > 0 || group._count.alumnos > 0) {
+      res.status(409).json({ error: "No puedes eliminar un grupo con alumnos o asignaturas asociados. Puedes marcarlo como inactivo." });
       return;
     }
 
