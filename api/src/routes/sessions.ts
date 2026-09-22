@@ -342,20 +342,59 @@ sessionsRouter.get("/:id", async (req, res, next) => {
       return;
     }
 
-    const [enrollments, records] = await Promise.all([
-      prisma.matricula.findMany({
+    // En tutorías DAM/DAW solo se consulta alumnado del grupo real en SQLite.
+    // No mezclar matrículas compartidas de DAM y DAW ni perder registros
+    // históricos de otros grupos: únicamente se excluyen de esta vista.
+    const bookingTutorial = session.tipo === "TUTORIA_GRUPAL"
+      && session.categoria === "TUTORIA_DUDAS"
+      && Boolean(session.grupoTutoria?.trim());
+    const groupName = session.grupoTutoria?.trim().toUpperCase() ?? "";
+    const group = bookingTutorial && ["DAM", "DAW"].includes(groupName)
+      ? await prisma.grupo.findUnique({
         where: {
-          asignaturaId: session.asignaturaId,
-          activa: true,
-          alumno: { activo: true },
+          cursoAcademicoId_nombre: {
+            cursoAcademicoId: session.asignatura.cursoAcademicoId,
+            nombre: groupName,
+          },
         },
-        include: { alumno: true },
-        orderBy: [{ alumno: { apellidos: "asc" } }, { alumno: { nombre: "asc" } }],
-      }),
-      prisma.registroSesion.findMany({
-        where: { sesionId: id },
-        include: { alumno: true },
-      }),
+      })
+      : null;
+    const groupWarning = bookingTutorial && !group
+      ? `No existe el grupo ${groupName || "(sin grupo)"} en el curso de esta tutoría. Comprueba los grupos sin cambiar los alumnos.`
+      : null;
+    const [enrollments, records, unassignedEnrollments] = await Promise.all([
+      bookingTutorial && !group
+        ? Promise.resolve([])
+        : prisma.matricula.findMany({
+          where: {
+            asignaturaId: session.asignaturaId,
+            activa: true,
+            alumno: {
+              activo: true,
+              ...(bookingTutorial && group ? { grupoId: group.id } : {}),
+            },
+          },
+          include: { alumno: true },
+          orderBy: [{ alumno: { apellidos: "asc" } }, { alumno: { nombre: "asc" } }],
+        }),
+      bookingTutorial && !group
+        ? Promise.resolve([])
+        : prisma.registroSesion.findMany({
+          where: {
+            sesionId: id,
+            ...(bookingTutorial && group ? { alumno: { grupoId: group.id } } : {}),
+          },
+          include: { alumno: true },
+        }),
+      bookingTutorial && group
+        ? prisma.matricula.count({
+          where: {
+            asignaturaId: session.asignaturaId,
+            activa: true,
+            alumno: { activo: true, grupoId: null },
+          },
+        })
+        : Promise.resolve(0),
     ]);
 
     const recordsByStudent = new Map(records.map((record) => [record.alumnoId, record]));
@@ -369,7 +408,7 @@ sessionsRouter.get("/:id", async (req, res, next) => {
         registro: recordsByStudent.get(alumno.id) ?? null,
       }));
 
-    res.json({ ...session, alumnos });
+    res.json({ ...session, alumnos, groupWarning, unassignedEnrollments });
   } catch (error) {
     next(error);
   }
@@ -402,6 +441,41 @@ sessionsRouter.put("/:id/records", async (req, res, next) => {
       }
       if (record.estadoAsistencia && !ATTENDANCE_STATES.has(record.estadoAsistencia)) {
         res.status(400).json({ error: `Estado de asistencia no válido: ${record.estadoAsistencia}` });
+        return;
+      }
+    }
+
+    // La propia API también impide registrar alumnos DAM en sesiones DAW,
+    // incluso si alguien invoca esta ruta sin pasar por la interfaz.
+    if (session.tipo === "TUTORIA_GRUPAL"
+        && session.categoria === "TUTORIA_DUDAS"
+        && session.grupoTutoria?.trim()) {
+      const groupName = session.grupoTutoria.trim().toUpperCase();
+      const courseId = await prisma.asignatura.findUnique({
+        where: { id: session.asignaturaId },
+        select: { cursoAcademicoId: true },
+      });
+      const group = courseId && ["DAM", "DAW"].includes(groupName)
+        ? await prisma.grupo.findUnique({
+          where: {
+            cursoAcademicoId_nombre: {
+              cursoAcademicoId: courseId.cursoAcademicoId, nombre: groupName,
+            },
+          },
+        })
+        : null;
+      if (!group) {
+        res.status(409).json({ error: "No está disponible el grupo académico de esta tutoría." });
+        return;
+      }
+      const submittedIds = [...new Set(records.map((record: any) => Number(record.alumnoId)))];
+      const validCount = await prisma.alumno.count({
+        where: { id: { in: submittedIds }, grupoId: group.id },
+      });
+      if (validCount !== submittedIds.length) {
+        res.status(400).json({
+          error: `Solo se puede registrar asistencia de alumnos del grupo ${groupName} en esta tutoría.`,
+        });
         return;
       }
     }
