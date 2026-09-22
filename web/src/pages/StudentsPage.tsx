@@ -11,6 +11,15 @@ type GroupOption = {
   cursoAcademico: { id: number; nombre: string };
 };
 
+type DatabaseStatus = {
+  path: string;
+  counts: { alumnos: number | null; matriculas: number | null; grupos: number | null } | null;
+  candidates: Array<{
+    path: string;
+    counts: { alumnos: number | null; matriculas: number | null; grupos: number | null } | null;
+  }>;
+};
+
 type Student = {
   id: number;
   nombre: string;
@@ -28,6 +37,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [databaseStatus, setDatabaseStatus] = useState<DatabaseStatus | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -42,15 +52,22 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
   async function load() {
     setError("");
     try {
-      const [studentsResponse, subjectsResponse, groupsResponse] = await Promise.all([
-        fetch("/api/students"),
-        fetch("/api/subjects"),
-        fetch("/api/groups"),
+      const [studentsResponse, subjectsResponse, groupsResponse, statusResponse] = await Promise.all([
+        fetch("/api/students", { cache: "no-store" }),
+        fetch("/api/subjects", { cache: "no-store" }),
+        fetch("/api/groups", { cache: "no-store" }),
+        fetch("/api/database/status", { cache: "no-store" }),
       ]);
-      if (!studentsResponse.ok || !subjectsResponse.ok || !groupsResponse.ok) throw new Error("No se pudieron cargar los alumnos y grupos");
+      if (!studentsResponse.ok || !subjectsResponse.ok || !groupsResponse.ok) {
+        const failedResponse = [studentsResponse, subjectsResponse, groupsResponse]
+          .find((response) => !response.ok)!;
+        const body = await failedResponse.json().catch(() => ({}));
+        throw new Error(body.error ?? `Error HTTP ${failedResponse.status} al cargar los alumnos o grupos`);
+      }
       setStudents(await studentsResponse.json());
       setSubjects(await subjectsResponse.json());
       setGroups(await groupsResponse.json());
+      setDatabaseStatus(statusResponse.ok ? await statusResponse.json() : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar alumnos");
     }
@@ -165,6 +182,22 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
           <p>Alta, edición de datos y matrícula en tus asignaturas.</p>
         </div>
       </header>
+
+      {databaseStatus?.counts?.alumnos === 0 && (
+        <div className="notice-banner warning" role="alert">
+          <strong>La base SQLite que está utilizando esta instalación contiene 0 alumnos.</strong>
+          <p>Archivo utilizado: <code>{databaseStatus.path}</code></p>
+          {databaseStatus.candidates.length > 0 ? (
+            <>
+              <p>Archivos locales encontrados (consulta de solo lectura; no se ha restaurado ninguno):</p>
+              {databaseStatus.candidates.map((candidate) => (
+                <p key={candidate.path}><code>{candidate.path}</code> · {candidate.counts?.alumnos ?? "?"} alumnos</p>
+              ))}
+            </>
+          ) : <p>No se han encontrado copias dentro de esta instalación. Esto no descarta otras carpetas de Tutor UTAMED.</p>}
+          <p>No ejecutes «Restaurar» ni sustituyas archivos sin verificar primero que la copia contiene tus datos.</p>
+        </div>
+      )}
 
       <section className="content-grid students-grid">
         <article className="panel" ref={formPanelRef}>
