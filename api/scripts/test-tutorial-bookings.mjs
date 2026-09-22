@@ -18,8 +18,23 @@ if (!existing.prepare("SELECT name FROM sqlite_master WHERE name='reservas_bloqu
   throw Error("No existe la tabla inicial que debe tener la base de prueba");
 if (Number(existing.prepare("SELECT COUNT(*) AS n FROM reservas_bloques_tutoria").get().n) !== 0)
   throw Error("La tabla inicial no está vacía");
+// Base de prueba con sesiones PREEXISTENTES, no solo con tablas vacías.
+const existingSubjectId = Number(existing.prepare("SELECT id FROM asignaturas LIMIT 1").get().id);
+const addExistingSession = existing.prepare(`
+  INSERT INTO sesiones
+  (asignatura_id, tipo, categoria, grupo_tutoria, inicio, fin, estado, origen, created_at, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, 'PROGRAMADA', 'IMPORTADA', ?, ?)
+`);
+for (const [index, [minutes, group]] of [[45, "DAM"], [60, "DAW"], [60, null]].entries()) {
+  const start = new Date("2026-10-05T09:00:00Z").getTime() + index * 86400000;
+  addExistingSession.run(
+    existingSubjectId, group ? "TUTORIA_GRUPAL" : "CLASE",
+    group ? "TUTORIA_DUDAS" : "TEORICA", group, start, start + minutes * 60_000, start, start,
+  );
+}
 const beforeStudents = studentCount(existing);
 const beforeSessions = sessionCount(existing);
+if (beforeSessions !== 3) throw Error("No se crearon las tres sesiones de control.");
 existing.exec("DROP TABLE reservas_bloques_tutoria");
 existing.close();
 
