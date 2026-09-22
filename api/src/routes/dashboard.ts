@@ -43,6 +43,7 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
       prisma.asignatura.count({ where: { activa: true } }),
       prisma.sesion.count({
         where: {
+          tipo: "CLASE",
           inicio: { gte: startOfDay, lte: endOfDay },
           estado: { not: "CANCELADA" },
         },
