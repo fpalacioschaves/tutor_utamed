@@ -380,7 +380,7 @@ sessionsRouter.put("/:id/records", async (req, res, next) => {
     }
 
     const result = await prisma.$transaction(
-      records.map((record) => {
+      records.map((record: any) => {
         const alumnoId = Number(record.alumnoId);
         const observation = typeof record.observacion === "string" ? record.observacion.trim() || null : null;
         const entry = record.horaEntrada ? new Date(record.horaEntrada) : null;
