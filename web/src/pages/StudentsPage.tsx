@@ -226,7 +226,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
             <div><p className="eyebrow">REGISTRADOS</p><h3>{visibleStudents.length} de {students.length} alumnos</h3></div>
           </div>
 
-          <div className="list-toolbar" aria-label="Filtrar alumnos">
+          <div className="list-toolbar students-filter-toolbar" aria-label="Filtrar alumnos">
             <label className="search-field">
               <span>Buscar</span>
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre, correo, identificador o asignatura" />
