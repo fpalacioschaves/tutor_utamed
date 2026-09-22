@@ -18,3 +18,26 @@ jobs:
       - run: npm run prisma:generate -w api
       - run: npm run typecheck
       - run: npm run build
+      # Solo en el runner temporal de GitHub, nunca en el ordenador del usuario.
+      - run: npm run setup
+      - name: Comprobar copia íntegra y persistencia de alumno de prueba
+        run: |
+          node --input-type=module <<'NODE'
+          import { DatabaseSync } from 'node:sqlite';
+          const db = new DatabaseSync('api/prisma/dev.db');
+          db.prepare("INSERT INTO alumnos(nombre,apellidos,activo,created_at,updated_at) VALUES ('Prueba','Seguridad',1,0,0)").run();
+          db.close();
+          NODE
+          npm run db:update
+          node --input-type=module <<'NODE'
+          import { DatabaseSync } from 'node:sqlite';
+          import { readdirSync } from 'node:fs';
+          const current = new DatabaseSync('api/prisma/dev.db', { readOnly: true });
+          const backupName = readdirSync('api/prisma').find(name => /^dev\\.pre-update-.*\\.db$/.test(name));
+          if (!backupName) throw Error('Falta copia pre-update');
+          const copy = new DatabaseSync('api/prisma/' + backupName, { readOnly: true });
+          const count = db => Number(db.prepare('SELECT COUNT(*) AS count FROM alumnos').get().count);
+          if (count(current) !== 1 || count(copy) !== 1) throw Error('Alumno no preservado');
+          console.log('Prueba SQLite: alumno preservado y copia verificada');
+          copy.close(); current.close();
+          NODE
