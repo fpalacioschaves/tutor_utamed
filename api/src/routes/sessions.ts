@@ -186,6 +186,7 @@ sessionsRouter.put("/:id", async (req, res, next) => {
       fin,
       estado,
       observacionesGenerales,
+      grupoTutoria,
     } = req.body;
 
     if (!asignaturaId || !inicio || !fin) {
