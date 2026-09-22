@@ -96,7 +96,6 @@ export function TutorialsPage({ focusedSessionId = null, focusedDate = null }: P
     && (!onlyReserved || item._count.reservasTutoria > 0)), [schedule, group, subjectId, onlyReserved]);
 
   const booked = schedule.reduce((sum, item) => sum + item._count.reservasTutoria, 0);
-  const selected = schedule.find((item) => item.id === selectedId);
   const moveMonth = (step: number) => {
     setSelectedId(null);
     setMonth((current) => new Date(current.getFullYear(), current.getMonth() + step, 1));
