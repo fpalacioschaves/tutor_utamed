@@ -5,7 +5,8 @@ type Props = {
   onOpenSession: (id: number) => void;
 };
 
-type SubjectOption = Subject & { activa?: boolean };
+type SubjectOption = Subject & { activa?: boolean; cursoAcademicoId?: number };
+type GroupOption = { id: number; nombre: string; cursoAcademicoId: number; activo: boolean };
 type PeriodFilter = "ALL" | "UPCOMING" | "PAST";
 
 const SESSION_STATUS_LABELS: Record<Session["estado"], string> = {
@@ -40,6 +41,8 @@ function toLocalInputValue(value: string) {
 export function SessionsPage({ onOpenSession }: Props) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [formCategory, setFormCategory] = useState<SessionCategory>("TEORICA");
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | "">("");
   const [selectedUnitId, setSelectedUnitId] = useState<number | "">("");
@@ -62,13 +65,15 @@ export function SessionsPage({ onOpenSession }: Props) {
     setLoading(true);
     setError("");
     try {
-      const [sessionsResponse, subjectsResponse] = await Promise.all([
+      const [sessionsResponse, subjectsResponse, groupsResponse] = await Promise.all([
         fetch("/api/sessions"),
         fetch("/api/subjects"),
+        fetch("/api/groups"),
       ]);
       if (!sessionsResponse.ok || !subjectsResponse.ok) throw new Error("No se pudieron cargar los datos");
       setSessions(await sessionsResponse.json());
       setSubjects(await subjectsResponse.json());
+      if (groupsResponse.ok) setGroups(await groupsResponse.json());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar sesiones");
     } finally {
@@ -135,6 +140,7 @@ export function SessionsPage({ onOpenSession }: Props) {
 
   function startCreating() {
     setEditing(null);
+    setFormCategory("TEORICA");
     setSelectedSubjectId("");
     setSelectedUnitId("");
     setUnits([]);
@@ -146,6 +152,7 @@ export function SessionsPage({ onOpenSession }: Props) {
 
   function startEditing(session: Session) {
     setEditing(session);
+    setFormCategory(session.categoria);
     setSelectedSubjectId(session.asignatura.id);
     setSelectedUnitId(session.unidad?.id ?? "");
     setError("");
@@ -157,6 +164,7 @@ export function SessionsPage({ onOpenSession }: Props) {
   function closeForm() {
     setShowForm(false);
     setEditing(null);
+    setFormCategory("TEORICA");
     setSelectedSubjectId("");
     setSelectedUnitId("");
     setUnits([]);
@@ -178,6 +186,7 @@ export function SessionsPage({ onOpenSession }: Props) {
       fin: form.get("fin"),
       estado: form.get("estado") || "PROGRAMADA",
       observacionesGenerales: form.get("observacionesGenerales"),
+      grupoTutoria: categoria === "TUTORIA_DUDAS" ? form.get("grupoTutoria") : null,
     };
 
     setSaving(true);
@@ -211,6 +220,10 @@ export function SessionsPage({ onOpenSession }: Props) {
   }
 
   const activeSubjects = subjects.filter((subject) => subject.activa !== false);
+  const currentCourseId = subjects.find((subject) => subject.id === selectedSubjectId)?.cursoAcademicoId;
+  const availableGroups = groups.filter((group) =>
+    group.activo && (currentCourseId === undefined || group.cursoAcademicoId === currentCourseId),
+  );
   const formSubjects = editing && !activeSubjects.some((subject) => subject.id === editing.asignatura.id)
     ? [...activeSubjects, editing.asignatura as SubjectOption]
     : activeSubjects;
@@ -277,13 +290,26 @@ export function SessionsPage({ onOpenSession }: Props) {
 
             <label>
               Categoría
-              <select name="categoria" defaultValue={editing?.categoria ?? "TEORICA"}>
+              <select name="categoria" value={formCategory} onChange={(event) => setFormCategory(event.target.value as SessionCategory)}>
                 {(Object.entries(SESSION_CATEGORY_LABELS) as Array<[SessionCategory, string]>).map(([value, label]) => (
                   <option value={value} key={value}>{label}</option>
                 ))}
               </select>
             </label>
 
+
+            {formCategory === "TUTORIA_DUDAS" && (
+              <label>
+                Grupo de esta tutoría
+                <select name="grupoTutoria" required defaultValue={editing?.grupoTutoria ?? ""} key={editing?.id ?? "new"}>
+                  <option value="">Selecciona DAM o DAW</option>
+                  {availableGroups.map((group) => (
+                    <option key={group.id} value={group.nombre}>{group.nombre}</option>
+                  ))}
+                </select>
+                {availableGroups.length === 0 && <small>Debes crear primero los grupos del curso académico desde Alumnos.</small>}
+              </label>
+            )}
 
             <label>
               Estado
