@@ -221,6 +221,30 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
 
   const cancelled = session.estado === "CANCELADA";
 
+  // Compatibilidad con enlaces antiguos del calendario/dashboard.
+  // Una franja de tutorías no es una clase ni tiene lista colectiva
+  // de asistencia. Las citas se gestionan por turno individual.
+  if (session.categoria === "TUTORIA_DUDAS" && session.tipo === "TUTORIA_GRUPAL") {
+    return (
+      <>
+        <header className="page-header">
+          <div>
+            <button className="back-button" type="button" onClick={handleBack}>← Volver</button>
+            <p className="eyebrow">TUTORÍA · TURNOS INDIVIDUALES</p>
+            <h2>{session.asignatura.nombre} · 1.º {session.grupoTutoria ?? "sin grupo"}</h2>
+            <p>{new Intl.DateTimeFormat("es-ES", { dateStyle: "full", timeStyle: "short" })
+              .format(new Date(session.inicio))}</p>
+          </div>
+        </header>
+        <section className="panel tutorial-booking-panel">
+          <h3>Turnos cerrados de 15 minutos</h3>
+          <p className="muted">Cada turno tiene, como máximo, un alumno reservado. No se pasa asistencia colectiva.</p>
+          <TutorialBookingSlots sessionId={sessionId} />
+        </section>
+      </>
+    );
+  }
+
   return (
     <>
       <header className="page-header session-header">
@@ -262,10 +286,6 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
       )}
 
       {message && <div className={`notice-banner ${success ? "success" : "error"}`} role={success ? "status" : "alert"}>{message}</div>}
-
-      {session.tipo === "TUTORIA_GRUPAL" && session.categoria === "TUTORIA_DUDAS" && (
-        <TutorialBookingSlots sessionId={sessionId} />
-      )}
 
       <section className="detail-toolbar" aria-label="Filtrar alumnado de la sesión">
         <label className="search-field">
