@@ -127,6 +127,7 @@ model Alumno {
   seguimientos         Seguimiento[]
   incidencias          Incidencia[]
   comunicaciones       Comunicacion[]
+  reservasTutoria      ReservaBloqueTutoria[]
 
   @@index([apellidos, nombre])
   @@index([grupoId])
@@ -242,10 +243,29 @@ model Sesion {
   registros              RegistroSesion[]
   seguimientos           Seguimiento[]
   incidencias            Incidencia[]
+  reservasTutoria        ReservaBloqueTutoria[]
 
   @@index([asignaturaId, inicio])
   @@index([inicio])
   @@map("sesiones")
+}
+
+// Un bloque reservado por alumno. Los bloques libres se calculan a partir
+// del horario de Sesion (15 minutos); no se crean sesiones duplicadas.
+model ReservaBloqueTutoria {
+  id        Int      @id @default(autoincrement())
+  sesionId  Int      @map("sesion_id")
+  bloque    Int
+  alumnoId  Int      @map("alumno_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  sesion    Sesion   @relation(fields: [sesionId], references: [id], onDelete: Restrict)
+  alumno    Alumno   @relation(fields: [alumnoId], references: [id], onDelete: Restrict)
+
+  @@unique([sesionId, bloque])
+  @@unique([sesionId, alumnoId])
+  @@index([alumnoId])
+  @@map("reservas_bloques_tutoria")
 }
 
 model RegistroSesion {

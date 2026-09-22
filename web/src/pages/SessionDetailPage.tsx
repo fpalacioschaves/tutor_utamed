@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AttendanceState, SessionCategory, SessionDetail } from "../types";
+import { TutorialBookingSlots } from "../components/TutorialBookingSlots";
 
 type Props = {
   sessionId: number;
@@ -17,6 +18,7 @@ type SessionDeletionImpact = {
   attendanceRecords: number;
   followUps: number;
   incidents: number;
+  bookings: number;
   hasLinkedData: boolean;
 };
 
@@ -177,6 +179,9 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
         impact.incidents > 0
           ? `- ${impact.incidents} incidencia${impact.incidents === 1 ? "" : "s"}`
           : null,
+        impact.bookings > 0
+          ? `- ${impact.bookings} reserva${impact.bookings === 1 ? "" : "s"} de tutoría (debes liberarlas antes de borrar)`
+          : null,
       ].filter(Boolean).join("\n");
 
       const linkedWarning = impact.hasLinkedData
@@ -257,6 +262,10 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
       )}
 
       {message && <div className={`notice-banner ${success ? "success" : "error"}`} role={success ? "status" : "alert"}>{message}</div>}
+
+      {session.tipo === "TUTORIA_GRUPAL" && session.categoria === "TUTORIA_DUDAS" && (
+        <TutorialBookingSlots sessionId={sessionId} />
+      )}
 
       <section className="detail-toolbar" aria-label="Filtrar alumnado de la sesión">
         <label className="search-field">

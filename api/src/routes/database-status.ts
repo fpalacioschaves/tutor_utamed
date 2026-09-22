@@ -35,7 +35,7 @@ databaseStatusRouter.get("/", (_req, res) => {
   const candidates: Array<{ path: string; counts: ReturnType<typeof readCounts> }> = [];
   if (existsSync(DB_DIRECTORY)) {
     for (const entry of readdirSync(DB_DIRECTORY)) {
-      if (entry === "dev.pre-grupos.db" || /^dev\.pre-update-.*\.db$/.test(entry)) {
+      if (entry === "dev.pre-grupos.db" || /^dev\.(?:pre-update-|pre-grupo-id-|pre-reservas-).*\.db$/.test(entry)) {
         const file = path.join(DB_DIRECTORY, entry);
         candidates.push({ path: file, counts: readCounts(file) });
       }
