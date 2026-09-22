@@ -3,6 +3,7 @@ import express, { type ErrorRequestHandler } from "express";
 import { Prisma } from "@prisma/client";
 import { coursesRouter } from "./routes/courses";
 import { groupsRouter } from "./routes/groups";
+import { databaseStatusRouter } from "./routes/database-status";
 import { contentsRouter } from "./routes/contents";
 import { dashboardRouter } from "./routes/dashboard";
 import { enrollmentsRouter } from "./routes/enrollments";
@@ -36,6 +37,7 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/courses", coursesRouter);
 app.use("/api/groups", groupsRouter);
+app.use("/api/database/status", databaseStatusRouter);
 app.use("/api/contents", contentsRouter);
 app.use("/api/materials", materialsRouter);
 app.use("/api/subjects", subjectsRouter);
