@@ -22,6 +22,7 @@ type Props = {
   onOpenSession: (id: number) => void;
   onOpenStudent: (id: number) => void;
   onOpenTutorials: () => void;
+  onOpenTutorialSchedule: (id: number, start: string) => void;
   onOpenFollowUps: () => void;
   onOpenIncidents: () => void;
   onOpenAlerts: () => void;
@@ -47,6 +48,7 @@ export function DashboardPage({
   onOpenSession,
   onOpenStudent,
   onOpenTutorials,
+  onOpenTutorialSchedule,
   onOpenFollowUps,
   onOpenIncidents,
   onOpenAlerts,
@@ -139,6 +141,7 @@ export function DashboardPage({
         <DashboardAgendaPanel
           onOpenSession={onOpenSession}
           onOpenTutorials={onOpenTutorials}
+          onOpenTutorialSchedule={onOpenTutorialSchedule}
           onOpenCalendar={onOpenCalendar}
         />
 
