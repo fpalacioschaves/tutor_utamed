@@ -14,8 +14,34 @@ const read = (handle) => Number(handle.prepare("SELECT COUNT(*) AS total FROM al
 
 if (read(db) !== 1) throw Error("La base temporal debe contener exactamente un alumno inicial.");
 const originalId = Number(db.prepare("SELECT id FROM alumnos").get().id);
-db.exec('DROP INDEX IF EXISTS "alumnos_grupo_id_idx"');
-db.exec('ALTER TABLE "alumnos" DROP COLUMN "grupo_id"');
+// Construye el esquema LEGADO en una base de prueba efímera. SQLite no
+// permite DROP COLUMN sobre una columna que participa en una FOREIGN KEY.
+db.exec(`
+  PRAGMA foreign_keys=OFF;
+  BEGIN IMMEDIATE;
+  CREATE TABLE "alumnos_legacy" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "nombre" TEXT NOT NULL,
+    "apellidos" TEXT NOT NULL,
+    "email" TEXT,
+    "identificador_externo" TEXT,
+    "activo" BOOLEAN NOT NULL DEFAULT 1,
+    "notas_generales" TEXT,
+    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" DATETIME NOT NULL
+  );
+  INSERT INTO "alumnos_legacy" (
+    id,nombre,apellidos,email,identificador_externo,activo,notas_generales,created_at,updated_at
+  ) SELECT
+    id,nombre,apellidos,email,identificador_externo,activo,notas_generales,created_at,updated_at
+  FROM "alumnos";
+  DROP TABLE "alumnos";
+  ALTER TABLE "alumnos_legacy" RENAME TO "alumnos";
+  CREATE UNIQUE INDEX "alumnos_email_key" ON "alumnos"("email");
+  CREATE INDEX "alumnos_apellidos_nombre_idx" ON "alumnos"("apellidos","nombre");
+  COMMIT;
+  PRAGMA foreign_keys=ON;
+`);
 if (db.prepare("PRAGMA table_info(alumnos)").all().some(({ name }) => name === "grupo_id")) {
   throw Error("No se ha construido la base heredada.");
 }
