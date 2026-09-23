@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
 import { buildAlerts } from "../services/alerts";
+import { personalTutoringOverview } from "../services/personal-tutoring";
 
 export const dashboardRouter = Router();
 
@@ -34,6 +35,7 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
       requestedTutorials,
       openIncidents,
       automaticAlerts,
+      personalTutoring,
     ] = await Promise.all([
       prisma.cursoAcademico.findFirst({
         where: { activo: true },
@@ -118,6 +120,7 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
         },
       }),
       buildAlerts(),
+      personalTutoringOverview(),
     ]);
 
     res.json({
@@ -131,6 +134,11 @@ dashboardRouter.get("/summary", async (_req, res, next) => {
       requestedTutorials: requestedTutorialsCount,
       openIncidents: openIncidentsCount,
       automaticAlerts: automaticAlerts.total,
+      personalTutoring: {
+        totalAlumnos: personalTutoring.totalAlumnos,
+        destacada: personalTutoring.destacada,
+        periodos: personalTutoring.periodos,
+      },
       today: {
         sessions: todaySessions,
         tutorials: todayTutorials,
