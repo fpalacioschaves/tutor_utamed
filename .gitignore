@@ -8,8 +8,17 @@ api/prisma/dev.pre-grupos.db
 api/prisma/dev.pre-update-*.db
 api/prisma/dev.pre-grupo-id-*.db
 api/prisma/dev.pre-reservas-*.db
+api/prisma/dev.pre-personal-*.db
+api/prisma/dev.db-wal
+api/prisma/dev.db-shm
+api/prisma/*.db
+api/prisma/*.db-*
 local-content/
 local-data/
 local-backups/
+private/
+local-private/
+*.xlsm
+*.pdf
 *.log
 .DS_Store
