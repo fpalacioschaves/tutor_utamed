@@ -8,6 +8,7 @@ import { StudentDetailPage } from "./pages/StudentDetailPage";
 import { ActivitiesPage } from "./pages/ActivitiesPage";
 import { ActivityDetailPage } from "./pages/ActivityDetailPage";
 import { TutorialsPage } from "./pages/TutorialsPage";
+import { PersonalTutoringPage } from "./pages/PersonalTutoringPage";
 import { FollowUpsPage } from "./pages/FollowUpsPage";
 import { IncidentsPage } from "./pages/IncidentsPage";
 import { CommunicationsPage } from "./pages/CommunicationsPage";
@@ -17,9 +18,9 @@ import { ReportsPage } from "./pages/ReportsPage";
 import { AlertsPage } from "./pages/AlertsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
-type View = "dashboard" | "calendar" | "sessions" | "students" | "subjects" | "contents" | "activities" | "tutorials" | "followups" | "incidents" | "communications" | "alerts" | "reports" | "settings" | "placeholder";
+type View = "dashboard" | "calendar" | "sessions" | "students" | "subjects" | "contents" | "activities" | "tutorials" | "personalTutoring" | "followups" | "incidents" | "communications" | "alerts" | "reports" | "settings" | "placeholder";
 
-const NAV_ITEMS = ["Dashboard", "Calendario", "Sesiones", "Alumnos", "Asignaturas", "Contenidos", "Actividades", "Tutorías", "Seguimientos", "Incidencias", "Comunicaciones", "Alertas", "Informes", "Configuración"];
+const NAV_ITEMS = ["Dashboard", "Calendario", "Sesiones", "Alumnos", "Asignaturas", "Contenidos", "Actividades", "Tutorías", "Seguimiento personalizado", "Seguimientos", "Incidencias", "Comunicaciones", "Alertas", "Informes", "Configuración"];
 
 function App() {
   const [view, setView] = useState<View>("dashboard");
@@ -28,6 +29,7 @@ function App() {
   const [tutorialFocusedId, setTutorialFocusedId] = useState<number | null>(null);
   const [tutorialFocusedDate, setTutorialFocusedDate] = useState<string | null>(null);
   const [studentId, setStudentId] = useState<number | null>(null);
+  const [personalContact, setPersonalContact] = useState<number | null>(null);
   const [activityId, setActivityId] = useState<number | null>(null);
   const [apiStatus, setApiStatus] = useState<"checking" | "ok" | "error">("checking");
   const [detailDirty, setDetailDirty] = useState(false);
@@ -49,6 +51,7 @@ function App() {
     setActivityId(null);
     setTutorialFocusedId(null);
     setTutorialFocusedDate(null);
+    setPersonalContact(null);
     setActiveLabel(label);
     if (label === "Dashboard") setView("dashboard");
     else if (label === "Calendario") setView("calendar");
@@ -58,6 +61,7 @@ function App() {
     else if (label === "Contenidos") setView("contents");
     else if (label === "Actividades") setView("activities");
     else if (label === "Tutorías") setView("tutorials");
+    else if (label === "Seguimiento personalizado") setView("personalTutoring");
     else if (label === "Seguimientos") setView("followups");
     else if (label === "Incidencias") setView("incidents");
     else if (label === "Comunicaciones") setView("communications");
@@ -93,6 +97,15 @@ function App() {
     setTutorialFocusedDate(null);
     setView("tutorials");
     setActiveLabel("Tutorías");
+  }
+
+  function openPersonalTutoring(numero?: number) {
+    setSessionId(null);
+    setStudentId(null);
+    setActivityId(null);
+    setPersonalContact(numero ?? null);
+    setView("personalTutoring");
+    setActiveLabel("Seguimiento personalizado");
   }
 
   function openStudent(id: number) {
@@ -137,7 +150,7 @@ function App() {
         {sessionId !== null ? (
           <SessionDetailPage sessionId={sessionId} onDirtyChange={setDetailDirty} onBack={() => { setDetailDirty(false); setSessionId(null); }} />
         ) : studentId !== null ? (
-          <StudentDetailPage studentId={studentId} onBack={() => setStudentId(null)} />
+          <StudentDetailPage studentId={studentId} onBack={() => setStudentId(null)} onOpenPersonalTutoring={() => openPersonalTutoring()} />
         ) : activityId !== null ? (
           <ActivityDetailPage activityId={activityId} onDirtyChange={setDetailDirty} onBack={() => { setDetailDirty(false); setActivityId(null); }} />
         ) : view === "dashboard" ? (
@@ -147,6 +160,7 @@ function App() {
             onOpenStudent={openStudent}
             onOpenTutorials={() => navigate("Tutorías")}
             onOpenTutorialSchedule={openTutorialSchedule}
+            onOpenPersonalTutoring={openPersonalTutoring}
             onOpenFollowUps={() => navigate("Seguimientos")}
             onOpenIncidents={() => navigate("Incidencias")}
             onOpenAlerts={() => navigate("Alertas")}
@@ -166,6 +180,8 @@ function App() {
           <ActivitiesPage onOpenActivity={openActivity} />
         ) : view === "tutorials" ? (
           <TutorialsPage focusedSessionId={tutorialFocusedId} focusedDate={tutorialFocusedDate} />
+        ) : view === "personalTutoring" ? (
+          <PersonalTutoringPage focusedContact={personalContact} onOpenStudents={() => navigate("Alumnos")} onOpenStudent={openStudent} />
         ) : view === "followups" ? (
           <FollowUpsPage />
         ) : view === "incidents" ? (
