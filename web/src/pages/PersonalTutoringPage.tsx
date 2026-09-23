@@ -32,7 +32,7 @@ export function PersonalTutoringPage({
   const [selectedNumber, setSelectedNumber] = useState(1);
   const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
   const [draft, setDraft] = useState<Draft>(blank);
-  const [onlyPending, setOnlyPending] = useState(false);
+  const [onlyPending, setOnlyPending] = useState(Boolean(focusedContact));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -48,7 +48,7 @@ export function PersonalTutoringPage({
       firstLoad.current = false;
       const number = focusedContact ?? overview.destacada.numero;
       setSelectedNumber(number);
-      const first = overview.alumnos[0];
+      const first = overview.alumnos.find(a => !a.contactosPersonales.some(c => c.numero === number)) ?? overview.alumnos[0];
       if (first) {
         setSelectedStudent(first.id);
         setDraft(recordDraft(first, number));
