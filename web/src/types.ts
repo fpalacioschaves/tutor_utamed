@@ -1,3 +1,41 @@
+export type PersonalContact = {
+  id: number;
+  numero: number;
+  fecha: string;
+  medio: string;
+  observaciones: string | null;
+  acuerdos: string | null;
+};
+
+export type PersonalPeriod = {
+  numero: number;
+  titulo: string;
+  momento: string;
+  inicio: string | null;
+  fin: string;
+  contenido: string;
+  total: number;
+  realizados: number;
+  pendientes: number;
+  fueraPlazo: number;
+  estado: "COMPLETO" | "VENCIDO" | "PROXIMO" | "EN_PLAZO";
+};
+
+export type PersonalOverview = {
+  alumnos: Array<{
+    id: number;
+    nombre: string;
+    apellidos: string;
+    grupoId: number | null;
+    grupo: { nombre: string } | null;
+    contactosPersonales: PersonalContact[];
+  }>;
+  periodos: PersonalPeriod[];
+  destacada: PersonalPeriod;
+  totalAlumnos: number;
+  fechaActual: string;
+};
+
 export type Summary = {
   course: { id: number; nombre: string } | null;
   students: number;
@@ -9,6 +47,7 @@ export type Summary = {
   requestedTutorials: number;
   openIncidents: number;
   automaticAlerts: number;
+  personalTutoring: { totalAlumnos: number; destacada: PersonalPeriod; periodos: PersonalPeriod[] };
   today: {
     sessions: Array<{
       id: number;
@@ -127,6 +166,7 @@ export type StudentDetailResponse = {
     email: string | null;
     identificadorExterno: string | null;
     notasGenerales: string | null;
+    tutorizadoPersonalmente: boolean;
     grupoId: number | null;
     grupo: { id: number; nombre: string; cursoAcademicoId: number } | null;
     activo: boolean;
@@ -175,6 +215,7 @@ export type StudentDetailResponse = {
       observacion: string | null;
     };
   }>;
+  contactosPersonales: PersonalContact[];
   tutorias: Array<{
     id: number;
     fechaSolicitud: string;
