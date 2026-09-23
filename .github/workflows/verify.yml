@@ -47,3 +47,6 @@ jobs:
         run: node api/scripts/test-tutorial-bookings.mjs
       - name: Simular actualización de reservas antiguas sin borrar registros
         run: node api/scripts/test-tutorial-metadata-upgrade.mjs
+
+      - name: Verificar cinco contactos personales sin datos reales
+        run: node api/scripts/test-personal-tutoring.mjs

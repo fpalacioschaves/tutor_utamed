@@ -13,6 +13,10 @@ const EMPTY_SUMMARY: Summary = {
   requestedTutorials: 0,
   openIncidents: 0,
   automaticAlerts: 0,
+  personalTutoring: { totalAlumnos: 0, destacada: {
+    numero: 1, titulo: "Inicio de curso", momento: "", inicio: null, fin: "2026-10-02", contenido: "",
+    total: 0, realizados: 0, pendientes: 0, fueraPlazo: 0, estado: "COMPLETO",
+  }, periodos: [] },
   today: { sessions: [], tutorials: [] },
   attention: { followUps: [], tutorials: [], incidents: [] },
 };
@@ -24,6 +28,7 @@ type Props = {
   onOpenTutorials: () => void;
   onOpenTutorialSchedule: (id: number, start: string) => void;
   onOpenFollowUps: () => void;
+  onOpenPersonalTutoring: (numero?: number) => void;
   onOpenIncidents: () => void;
   onOpenAlerts: () => void;
   onOpenCalendar: () => void;
@@ -50,6 +55,7 @@ export function DashboardPage({
   onOpenTutorials,
   onOpenTutorialSchedule,
   onOpenFollowUps,
+  onOpenPersonalTutoring,
   onOpenIncidents,
   onOpenAlerts,
   onOpenCalendar,
@@ -136,6 +142,37 @@ export function DashboardPage({
           <small>Según tus reglas configuradas</small>
         </article>
       </section>
+
+      {summary.personalTutoring.totalAlumnos > 0 && (
+        <section className={summary.personalTutoring.destacada.estado === "VENCIDO" ?
+          "panel personal-dashboard-alert is-overdue" : "panel personal-dashboard-alert"}
+          aria-label="Seguimiento tutorial personalizado">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">SEGUIMIENTO PERSONALIZADO · DOCENTE-TUTOR</p>
+              <h3>Contacto C{summary.personalTutoring.destacada.numero} · {summary.personalTutoring.destacada.titulo}</h3>
+              <p>{summary.personalTutoring.destacada.momento}</p>
+              <p className="personal-alert-count">
+                Te restan {summary.personalTutoring.destacada.pendientes} alumnos para el contacto
+                n.º {summary.personalTutoring.destacada.numero}.
+              </p>
+              <p className="muted">{summary.personalTutoring.destacada.realizados} realizados de {summary.personalTutoring.totalAlumnos} asignados
+                {summary.personalTutoring.destacada.estado === "VENCIDO" ? " · Plazo vencido" : ""}</p>
+            </div>
+            <button className="primary" type="button"
+              onClick={() => onOpenPersonalTutoring(summary.personalTutoring.destacada.numero)}>
+              Ver alumnos pendientes
+            </button>
+          </div>
+          <div className="personal-alert-periods">
+            {summary.personalTutoring.periodos.filter(p => p.estado === "VENCIDO").map(p =>
+              <button className="secondary compact-button" key={p.numero} type="button"
+                onClick={() => onOpenPersonalTutoring(p.numero)}>
+                C{p.numero}: {p.pendientes} pendientes fuera de plazo
+              </button>)}
+          </div>
+        </section>
+      )}
 
       <section className="dashboard-main-grid">
         <DashboardAgendaPanel

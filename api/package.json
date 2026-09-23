@@ -14,10 +14,11 @@
     "db:reset": "node scripts/reset-disabled.mjs",
     "seed": "tsx prisma/seed.ts",
     "db:update": "node scripts/backup-before-groups.mjs && prisma db push && prisma generate",
-    "predev": "node scripts/check-db-present.mjs && node scripts/ensure-student-group-schema.mjs && node scripts/ensure-tutorial-bookings-schema.mjs && prisma generate",
+    "predev": "node scripts/check-db-present.mjs && node scripts/ensure-student-group-schema.mjs && node scripts/ensure-tutorial-bookings-schema.mjs && node scripts/ensure-personal-tutoring-schema.mjs && prisma generate",
     "db:assign-groups": "tsx prisma/assign-student-groups.ts",
     "db:repair-student-groups": "node scripts/check-db-present.mjs && node scripts/ensure-student-group-schema.mjs && prisma generate",
-    "db:repair-tutorial-bookings": "node scripts/check-db-present.mjs && node scripts/ensure-tutorial-bookings-schema.mjs && prisma generate"
+    "db:repair-tutorial-bookings": "node scripts/check-db-present.mjs && node scripts/ensure-tutorial-bookings-schema.mjs && prisma generate",
+    "db:repair-personal-tutoring": "node scripts/check-db-present.mjs && node scripts/ensure-personal-tutoring-schema.mjs && prisma generate"
   },
   "dependencies": {
     "@prisma/client": "6.19.0",

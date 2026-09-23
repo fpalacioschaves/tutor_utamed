@@ -66,6 +66,12 @@ if (copy.prepare("PRAGMA table_info(alumnos)").all().some(({ name }) => name ===
 copy.close();
 restored.close();
 
+// El esquema legado simulado no contiene las columnas nuevas de seguimiento
+// personal. Aplicar también su migración ADITIVA antes de probar la API actual.
+execFileSync("npm", ["run", "db:repair-personal-tutoring", "-w", "api"], {
+  cwd: root, stdio: "inherit",
+});
+
 const port = 39761;
 const server = spawn(process.execPath, [join(apiRoot, "dist", "server.js")], {
   cwd: root, env: { ...process.env, PORT: String(port) }, stdio: "pipe",

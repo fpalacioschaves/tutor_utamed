@@ -116,6 +116,7 @@ model Alumno {
   identificadorExterno String?              @map("identificador_externo")
   activo               Boolean              @default(true)
   notasGenerales       String?              @map("notas_generales")
+  tutorizadoPersonalmente Boolean           @default(false) @map("tutorizado_personalmente")
   grupoId              Int?                 @map("grupo_id")
   grupo                Grupo?               @relation(fields: [grupoId], references: [id])
   createdAt            DateTime             @default(now()) @map("created_at")
@@ -128,10 +129,30 @@ model Alumno {
   incidencias          Incidencia[]
   comunicaciones       Comunicacion[]
   reservasTutoria      ReservaBloqueTutoria[]
+  contactosPersonales   ContactoPersonal[]
 
   @@index([apellidos, nombre])
   @@index([grupoId])
   @@map("alumnos")
+}
+
+// Seguimiento como Docente-Tutor: independiente de sesiones,
+ // citas académicas, comunicaciones y seguimientos de asignaturas.
+model ContactoPersonal {
+  id            Int      @id @default(autoincrement())
+  alumnoId      Int      @map("alumno_id")
+  numero        Int
+  fecha         DateTime
+  medio         String
+  observaciones String?
+  acuerdos      String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  alumno        Alumno   @relation(fields: [alumnoId], references: [id], onDelete: Restrict)
+
+  @@unique([alumnoId, numero])
+  @@index([numero, fecha])
+  @@map("contactos_personales")
 }
 
 model Asignatura {

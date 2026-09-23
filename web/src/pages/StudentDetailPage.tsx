@@ -4,6 +4,7 @@ import type { AiAnalysisMode, AiAnalysisResponse, AttendanceState, StudentDetail
 type Props = {
   studentId: number;
   onBack: () => void;
+  onOpenPersonalTutoring: () => void;
 };
 
 const attendanceLabels: Record<AttendanceState, string> = {
@@ -58,6 +59,7 @@ type TimelineFilter =
   | "SESION"
   | "ACTIVIDAD"
   | "TUTORIA_INDIVIDUAL"
+  | "CONTACTO_PERSONAL"
   | "SEGUIMIENTO"
   | "INCIDENCIA"
   | "COMUNICACION";
@@ -66,7 +68,8 @@ const timelineTabs: Array<{ value: TimelineFilter; label: string }> = [
   { value: "TODO", label: "Todo" },
   { value: "SESION", label: "Clases / asistencia" },
   { value: "ACTIVIDAD", label: "Actividades" },
-  { value: "TUTORIA_INDIVIDUAL", label: "Tutorías" },
+  { value: "TUTORIA_INDIVIDUAL", label: "Tutorías académicas" },
+  { value: "CONTACTO_PERSONAL", label: "Contactos personales" },
   { value: "SEGUIMIENTO", label: "Seguimientos" },
   { value: "INCIDENCIA", label: "Incidencias" },
   { value: "COMUNICACION", label: "Comunicaciones" },
@@ -75,7 +78,8 @@ const timelineTabs: Array<{ value: TimelineFilter; label: string }> = [
 const timelineTypeLabels: Record<string, string> = {
   SESION: "Clase / asistencia",
   ACTIVIDAD: "Actividad",
-  TUTORIA_INDIVIDUAL: "Tutoría individual",
+  TUTORIA_INDIVIDUAL: "Tutoría académica individual",
+  CONTACTO_PERSONAL: "Contacto tutorial personal",
   SEGUIMIENTO: "Seguimiento",
   INCIDENCIA: "Incidencia",
   COMUNICACION: "Comunicación",
@@ -99,7 +103,7 @@ function attendanceMetric(count: number, percentage: number | null) {
   return percentage == null ? String(count) : `${count} (${percentage}%)`;
 }
 
-export function StudentDetailPage({ studentId, onBack }: Props) {
+export function StudentDetailPage({ studentId, onBack, onOpenPersonalTutoring }: Props) {
   const [data, setData] = useState<StudentDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -171,6 +175,7 @@ export function StudentDetailPage({ studentId, onBack }: Props) {
       SESION: 0,
       ACTIVIDAD: 0,
       TUTORIA_INDIVIDUAL: 0,
+      CONTACTO_PERSONAL: 0,
       SEGUIMIENTO: 0,
       INCIDENCIA: 0,
       COMUNICACION: 0,
@@ -205,6 +210,7 @@ export function StudentDetailPage({ studentId, onBack }: Props) {
           <button className="back-button" type="button" onClick={onBack}>← Alumnos</button>
           <p className="eyebrow">FICHA COMPLETA DEL ALUMNO</p>
           <h2>{alumno.nombre} {alumno.apellidos}</h2>
+          {alumno.tutorizadoPersonalmente && <span className="status-pill ok">Alumno tutorizado personalmente</span>}
           <p>{alumno.email || "Sin correo registrado"} · Grupo: {alumno.grupo?.nombre ?? "Sin asignar"}</p>
         </div>
         <div className="subject-tags student-detail-subjects">
@@ -223,7 +229,8 @@ export function StudentDetailPage({ studentId, onBack }: Props) {
         <a href="#asistencia">Asistencia</a>
         <a href="#observaciones">Observaciones</a>
         <a href="#actividades">Actividades</a>
-        <a href="#tutorias">Tutorías</a>
+        <a href="#tutorias">Tutorías académicas</a>
+        {alumno.tutorizadoPersonalmente && <a href="#contactos-personales">Seguimiento personal</a>}
         <a href="#seguimientos">Seguimientos</a>
         <a href="#incidencias">Incidencias</a>
         <a href="#comunicaciones">Comunicaciones</a>
@@ -240,6 +247,7 @@ export function StudentDetailPage({ studentId, onBack }: Props) {
             <div><dt>Identificador externo</dt><dd>{alumno.identificadorExterno || "—"}</dd></div>
              <div><dt>Grupo académico</dt><dd>{alumno.grupo?.nombre ?? "Sin asignar"}</dd></div>
             <div><dt>Estado</dt><dd>{alumno.activo ? "Activo" : "Inactivo"}</dd></div>
+            <div><dt>Docente-Tutor</dt><dd>{alumno.tutorizadoPersonalmente ? "Asignado a mi seguimiento personal" : "Sin asignación personal"}</dd></div>
           </dl>
           <div className="general-notes">
             <strong>Notas generales</strong>
@@ -411,6 +419,31 @@ export function StudentDetailPage({ studentId, onBack }: Props) {
           </div>
         )}
       </section>
+
+      {alumno.tutorizadoPersonalmente && (
+        <section className="student-section" id="contactos-personales">
+          <div className="section-title">
+            <div><p className="eyebrow">DOCENTE-TUTOR</p><h3>Cinco contactos personales</h3></div>
+            <span className="section-count">{data.contactosPersonales.length}/5</span>
+          </div>
+          <p>Independientes de las tutorías académicas grupales e individuales.</p>
+          <div className="data-cards">
+            {[1, 2, 3, 4, 5].map(number => {
+              const item = data.contactosPersonales.find(c => c.numero === number);
+              return <article className="data-card" key={number}>
+                <div className="data-card-title"><strong>Contacto C{number}</strong>
+                  <span className={item ? "status-pill ok" : "status-pill"}>{item ? "Realizado" : "Pendiente"}</span></div>
+                {item && <>
+                  <p>Fecha: {dateOnly(item.fecha)} · Medio: {item.medio}</p>
+                  {item.observaciones && <p>Observaciones: {item.observaciones}</p>}
+                  {item.acuerdos && <p>Acuerdos: {item.acuerdos}</p>}
+                </>}
+              </article>;
+            })}
+          </div>
+          <button type="button" className="primary" onClick={onOpenPersonalTutoring}>Abrir seguimiento personalizado</button>
+        </section>
+      )}
 
       <section className="student-section" id="seguimientos">
         <div className="section-title"><div><p className="eyebrow">PENDIENTES</p><h3>Seguimientos</h3></div><span className="section-count">{data.seguimientos.length}</span></div>
