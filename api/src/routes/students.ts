@@ -88,7 +88,7 @@ studentsRouter.get("/:id/detail", async (req, res, next) => {
       .filter((enrollment) => enrollment.activa)
       .map((enrollment) => enrollment.asignaturaId);
 
-    const [records, activities, deliveries, tutorials, bookedTutorials, followUps, incidents, communications] = await Promise.all([
+    const [records, activities, deliveries, tutorials, bookedTutorials, followUps, incidents, communications, personalContacts] = await Promise.all([
       prisma.registroSesion.findMany({
         where: { alumnoId: id },
         include: {
@@ -135,6 +135,9 @@ studentsRouter.get("/:id/detail", async (req, res, next) => {
         where: { alumnoId: id },
         include: { asignatura: true },
         orderBy: { fecha: "desc" },
+      }),
+      prisma.contactoPersonal.findMany({
+        where: { alumnoId: id }, orderBy: { numero: "asc" },
       }),
     ]);
 
@@ -264,6 +267,15 @@ studentsRouter.get("/:id/detail", async (req, res, next) => {
         detalle: incident.descripcion,
         estado: incident.estado,
       })),
+      ...personalContacts.map((contact) => ({
+        id: `contacto-personal-${contact.id}`,
+        fecha: contact.fecha,
+        tipo: "CONTACTO_PERSONAL",
+        asignatura: null,
+        titulo: `Contacto personal C${contact.numero}`,
+        detalle: contact.observaciones || contact.acuerdos,
+        estado: "REALIZADO",
+      })),
       ...communications.map((communication) => ({
         id: `comunicacion-${communication.id}`,
         fecha: communication.fecha,
@@ -284,6 +296,7 @@ studentsRouter.get("/:id/detail", async (req, res, next) => {
       },
       actividades: activityRows,
       tutorias: allTutorials,
+      contactosPersonales: personalContacts,
       seguimientos: followUps,
       incidencias: incidents,
       comunicaciones: communications,
@@ -296,7 +309,7 @@ studentsRouter.get("/:id/detail", async (req, res, next) => {
 
 studentsRouter.post("/", async (req, res, next) => {
   try {
-    const { nombre, apellidos, email, identificadorExterno, notasGenerales, asignaturaIds, activo, grupoId: groupInput } = req.body;
+    const { nombre, apellidos, email, identificadorExterno, notasGenerales, tutorizadoPersonalmente, asignaturaIds, activo, grupoId: groupInput } = req.body;
     if (!nombre || !apellidos) {
       res.status(400).json({ error: "nombre y apellidos son obligatorios" });
       return;
@@ -320,6 +333,7 @@ studentsRouter.post("/", async (req, res, next) => {
           email: email ? String(email).trim() : null,
           identificadorExterno: identificadorExterno ? String(identificadorExterno).trim() : null,
           notasGenerales: notasGenerales ? String(notasGenerales).trim() : null,
+          tutorizadoPersonalmente: tutorizadoPersonalmente === true,
           grupoId,
         },
       });
@@ -358,7 +372,7 @@ studentsRouter.put("/:id", async (req, res, next) => {
       return;
     }
 
-    const { nombre, apellidos, email, identificadorExterno, notasGenerales, asignaturaIds, activo, grupoId: groupInput } = req.body;
+    const { nombre, apellidos, email, identificadorExterno, notasGenerales, tutorizadoPersonalmente, asignaturaIds, activo, grupoId: groupInput } = req.body;
     if (!nombre || !apellidos) {
       res.status(400).json({ error: "nombre y apellidos son obligatorios" });
       return;
@@ -393,6 +407,7 @@ studentsRouter.put("/:id", async (req, res, next) => {
           email: email ? String(email).trim() : null,
           identificadorExterno: identificadorExterno ? String(identificadorExterno).trim() : null,
           notasGenerales: notasGenerales ? String(notasGenerales).trim() : null,
+          tutorizadoPersonalmente: typeof tutorizadoPersonalmente === "boolean" ? tutorizadoPersonalmente : existing.tutorizadoPersonalmente,
           grupoId,
           activo: typeof activo === "boolean" ? activo : existing.activo,
         },
