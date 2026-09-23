@@ -27,6 +27,7 @@ type Student = {
   email: string | null;
   identificadorExterno?: string | null;
   notasGenerales?: string | null;
+  tutorizadoPersonalmente: boolean;
   grupoId: number | null;
   grupo: GroupOption | null;
   activo?: boolean;
@@ -50,6 +51,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
   const [subjectFilter, setSubjectFilter] = useState<number | "">("");
   const [groupFilter, setGroupFilter] = useState<number | "">("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ACTIVE");
+  const [onlyPersonal, setOnlyPersonal] = useState(false);
   const formPanelRef = useRef<HTMLElement | null>(null);
 
   async function load(): Promise<GroupOption[]> {
@@ -115,13 +117,14 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
       if (statusFilter === "INACTIVE" && active) return false;
       if (subjectFilter !== "" && !student.matriculas.some((enrollment) => enrollment.asignatura.id === subjectFilter)) return false;
       if (groupFilter !== "" && student.grupoId !== groupFilter) return false;
+      if (onlyPersonal && !student.tutorizadoPersonalmente) return false;
       if (!query) return true;
       const haystack = [student.nombre, student.apellidos, student.email ?? "", student.identificadorExterno ?? "", ...student.matriculas.map((item) => item.asignatura.nombre)]
         .join(" ")
         .toLocaleLowerCase("es");
       return haystack.includes(query);
     });
-  }, [students, search, subjectFilter, groupFilter, statusFilter]);
+  }, [students, search, subjectFilter, groupFilter, statusFilter, onlyPersonal]);
 
   async function saveStudent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -139,6 +142,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
         email: data.get("email"),
         identificadorExterno: data.get("identificadorExterno"),
         notasGenerales: data.get("notasGenerales"),
+        tutorizadoPersonalmente: data.get("tutorizadoPersonalmente") === "on",
         grupoId: data.get("grupoId") || null,
         activo: data.get("activo") === "on",
         asignaturaIds: subjectIds,
@@ -163,6 +167,22 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
       setError(err instanceof Error ? err.message : "No se pudo guardar el alumno");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function togglePersonal(student: Student) {
+    setError(""); setMessage("");
+    try {
+      const response = await fetch(`/api/personal-tutoring/students/${student.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tutorizadoPersonalmente: !student.tutorizadoPersonalmente }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw Error(result.error ?? "No se pudo cambiar la asignación tutorial.");
+      await load();
+      setMessage("Asignación tutorial actualizada en la base local.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo actualizar la asignación.");
     }
   }
 
@@ -291,6 +311,10 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
               Notas generales
               <textarea name="notasGenerales" rows={4} placeholder="Información general que quieras conservar sobre el alumno" defaultValue={editing?.notasGenerales ?? ""} />
             </label>
+            <label className="inline-check">
+              <input type="checkbox" name="tutorizadoPersonalmente" defaultChecked={editing?.tutorizadoPersonalmente ?? false} />
+              Alumno asignado a mi seguimiento tutorial personal (cinco contactos)
+            </label>
             <fieldset className="subject-checks">
               <legend>Asignaturas</legend>
               {!subjectsLoaded ? <p className="form-error">No se pudieron consultar las asignaturas: no significa que no existan.</p> : activeSubjects.length === 0 ? <p className="muted">No hay asignaturas activas en la base conectada.</p> : activeSubjects.map((subject) => {
@@ -357,6 +381,10 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
                 <option value="INACTIVE">Inactivos</option>
               </select>
             </label>
+            <label className="inline-check">
+              <input type="checkbox" checked={onlyPersonal} onChange={e => setOnlyPersonal(e.target.checked)} />
+              Solo mis alumnos tutorizados
+            </label>
           </div>
 
           {!studentsLoaded ? (
@@ -374,6 +402,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
                       <strong>{student.apellidos}, {student.nombre}</strong>
                       <span className="tag">{student.grupo?.nombre ?? "Sin grupo"}</span>
                       {student.activo === false && <span className="status-pill muted-status">Inactivo</span>}
+                      {student.tutorizadoPersonalmente && <span className="status-pill ok">Tutorizado</span>}
                     </div>
                     <small>{student.email || "Sin correo"}</small>
                     {student.identificadorExterno && <small>ID: {student.identificadorExterno}</small>}
@@ -384,6 +413,7 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
                     </div>
                   </div>
                   <div className="row-actions">
+                    <button className="secondary compact-button" type="button" onClick={() => void togglePersonal(student)}>{student.tutorizadoPersonalmente ? "Retirar marca tutorial" : "Marcar tutorizado"}</button>
                     <button className="primary compact-button" type="button" onClick={() => onOpenStudent(student.id)}>
                       Ver ficha
                     </button>
