@@ -37,7 +37,7 @@ personalTutoringRouter.put("/students/:id/contacts/:number", async (req, res, ne
       !GUIAS.some(guia => guia.numero === numero)) {
       res.status(400).json({ error: "Alumno o contacto no válido." }); return;
     }
-    if (typeof fecha !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(fecha) ||
+    if (typeof fecha !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(fecha) ||
       !Number.isFinite(Date.parse(fecha)) ||
       new Date(fecha).toISOString().slice(0, 10) !== fecha ||
       fecha < "2026-09-01" || fecha > "2027-07-31") {
