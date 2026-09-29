@@ -9,6 +9,7 @@ api/prisma/dev.pre-update-*.db
 api/prisma/dev.pre-grupo-id-*.db
 api/prisma/dev.pre-reservas-*.db
 api/prisma/dev.pre-personal-*.db
+api/prisma/dev.pre-communications-*.db
 api/prisma/dev.db-wal
 api/prisma/dev.db-shm
 api/prisma/*.db
