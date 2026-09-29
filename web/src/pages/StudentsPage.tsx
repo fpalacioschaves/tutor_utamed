@@ -34,7 +34,15 @@ type Student = {
   matriculas: Array<{ id: number; asignatura: SubjectOption }>;
 };
 
-export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) => void }) {
+export function StudentsPage({
+  onOpenStudent,
+  editStudentId,
+  onEditStudentConsumed,
+}: {
+  onOpenStudent: (id: number) => void;
+  editStudentId: number | null;
+  onEditStudentConsumed: () => void;
+}) {
   const [students, setStudents] = useState<Student[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [groups, setGroups] = useState<GroupOption[]>([]);
@@ -108,6 +116,21 @@ export function StudentsPage({ onOpenStudent }: { onOpenStudent: (id: number) =>
       setError(err instanceof Error ? err.message : "No se pudieron cargar los datos");
     });
   }, []);
+
+  useEffect(() => {
+    if (editStudentId === null || !studentsLoaded) return;
+    const student = students.find((item) => item.id === editStudentId);
+    if (!student) {
+      setError("No se ha encontrado el alumno que se quería editar.");
+      onEditStudentConsumed();
+      return;
+    }
+    setEditing(student);
+    setError("");
+    setMessage("");
+    onEditStudentConsumed();
+    requestAnimationFrame(() => formPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [editStudentId, studentsLoaded, students, onEditStudentConsumed]);
 
   const visibleStudents = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("es");

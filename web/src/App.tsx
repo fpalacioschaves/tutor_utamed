@@ -29,6 +29,7 @@ function App() {
   const [tutorialFocusedId, setTutorialFocusedId] = useState<number | null>(null);
   const [tutorialFocusedDate, setTutorialFocusedDate] = useState<string | null>(null);
   const [studentId, setStudentId] = useState<number | null>(null);
+  const [studentEditId, setStudentEditId] = useState<number | null>(null);
   const [personalContact, setPersonalContact] = useState<number | null>(null);
   const [activityId, setActivityId] = useState<number | null>(null);
   const [apiStatus, setApiStatus] = useState<"checking" | "ok" | "error">("checking");
@@ -48,6 +49,7 @@ function App() {
     setDetailDirty(false);
     setSessionId(null);
     setStudentId(null);
+    setStudentEditId(null);
     setActivityId(null);
     setTutorialFocusedId(null);
     setTutorialFocusedDate(null);
@@ -111,7 +113,17 @@ function App() {
   function openStudent(id: number) {
     setSessionId(null);
     setActivityId(null);
+    setStudentEditId(null);
     setStudentId(id);
+    setView("students");
+    setActiveLabel("Alumnos");
+  }
+
+  function editStudent(id: number) {
+    setSessionId(null);
+    setActivityId(null);
+    setStudentId(null);
+    setStudentEditId(id);
     setView("students");
     setActiveLabel("Alumnos");
   }
@@ -150,7 +162,7 @@ function App() {
         {sessionId !== null ? (
           <SessionDetailPage sessionId={sessionId} onDirtyChange={setDetailDirty} onBack={() => { setDetailDirty(false); setSessionId(null); }} />
         ) : studentId !== null ? (
-          <StudentDetailPage studentId={studentId} onBack={() => setStudentId(null)} onOpenPersonalTutoring={() => openPersonalTutoring()} />
+          <StudentDetailPage studentId={studentId} onBack={() => setStudentId(null)} onEdit={() => editStudent(studentId)} onOpenPersonalTutoring={() => openPersonalTutoring()} />
         ) : activityId !== null ? (
           <ActivityDetailPage activityId={activityId} onDirtyChange={setDetailDirty} onBack={() => { setDetailDirty(false); setActivityId(null); }} />
         ) : view === "dashboard" ? (
@@ -171,7 +183,7 @@ function App() {
         ) : view === "sessions" ? (
           <SessionsPage onOpenSession={openSession} />
         ) : view === "students" ? (
-          <StudentsPage onOpenStudent={openStudent} />
+          <StudentsPage onOpenStudent={openStudent} editStudentId={studentEditId} onEditStudentConsumed={() => setStudentEditId(null)} />
         ) : view === "subjects" ? (
           <SubjectsPage />
         ) : view === "contents" ? (

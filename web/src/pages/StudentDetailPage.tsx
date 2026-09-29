@@ -4,6 +4,7 @@ import type { AiAnalysisMode, AiAnalysisResponse, AttendanceState, StudentDetail
 type Props = {
   studentId: number;
   onBack: () => void;
+  onEdit: () => void;
   onOpenPersonalTutoring: () => void;
 };
 
@@ -103,7 +104,7 @@ function attendanceMetric(count: number, percentage: number | null) {
   return percentage == null ? String(count) : `${count} (${percentage}%)`;
 }
 
-export function StudentDetailPage({ studentId, onBack, onOpenPersonalTutoring }: Props) {
+export function StudentDetailPage({ studentId, onBack, onEdit, onOpenPersonalTutoring }: Props) {
   const [data, setData] = useState<StudentDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -213,10 +214,13 @@ export function StudentDetailPage({ studentId, onBack, onOpenPersonalTutoring }:
           {alumno.tutorizadoPersonalmente && <span className="status-pill ok">Alumno tutorizado personalmente</span>}
           <p>{alumno.email || "Sin correo registrado"} · Grupo: {alumno.grupo?.nombre ?? "Sin asignar"}</p>
         </div>
-        <div className="subject-tags student-detail-subjects">
-          {alumno.matriculas.filter((item) => item.activa).map((enrollment) => (
-            <span className="tag" key={enrollment.id}>{enrollment.asignatura.nombre}</span>
-          ))}
+        <div className="student-detail-header-actions">
+          <button className="primary compact-button" type="button" onClick={onEdit}>Editar alumno</button>
+          <div className="subject-tags student-detail-subjects">
+            {alumno.matriculas.filter((item) => item.activa).map((enrollment) => (
+              <span className="tag" key={enrollment.id}>{enrollment.asignatura.nombre}</span>
+            ))}
+          </div>
         </div>
       </header>
 

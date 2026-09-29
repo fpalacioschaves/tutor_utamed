@@ -167,6 +167,7 @@ textarea { resize: vertical; line-height: 1.5; }
 
 /* v0.5: ficha 360º del alumno */
 .student-detail-header { align-items: flex-end; }
+.student-detail-header-actions { display: grid; justify-items: end; gap: 10px; }
 .student-detail-subjects { max-width: 520px; }
 .student-summary-grid { display: grid; grid-template-columns: minmax(300px, .85fr) minmax(520px, 1.15fr); gap: 18px; margin-bottom: 26px; }
 .student-identity-card { min-height: 100%; }
@@ -238,6 +239,7 @@ textarea { resize: vertical; line-height: 1.5; }
 }
 @media (max-width: 760px) {
   .student-detail-header { align-items: flex-start; }
+  .student-detail-header-actions { justify-items: start; }
   .student-kpi-grid, .attendance-summary-grid, .data-cards { grid-template-columns: 1fr; }
   .detail-list > div { grid-template-columns: 1fr; gap: 4px; }
   .timeline-item { grid-template-columns: 1fr; gap: 5px; }
