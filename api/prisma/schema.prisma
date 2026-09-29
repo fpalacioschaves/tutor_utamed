@@ -65,6 +65,11 @@ enum EstadoUnidad {
   IMPARTIDA
 }
 
+enum DireccionComunicacion {
+  ENTRANTE
+  SALIENTE
+}
+
 model Admin {
   id           Int       @id @default(autoincrement())
   usuario      String    @unique
@@ -128,6 +133,7 @@ model Alumno {
   seguimientos         Seguimiento[]
   incidencias          Incidencia[]
   comunicaciones       Comunicacion[]
+  hilosComunicacion    HiloComunicacion[]
   reservasTutoria      ReservaBloqueTutoria[]
   contactosPersonales   ContactoPersonal[]
 
@@ -176,6 +182,7 @@ model Asignatura {
   seguimientos     Seguimiento[]
   incidencias      Incidencia[]
   comunicaciones   Comunicacion[]
+  hilosComunicacion HiloComunicacion[]
 
   @@index([cursoAcademicoId])
   @@index([grupoId])
@@ -419,19 +426,40 @@ model Seguimiento {
   @@map("seguimientos")
 }
 
-model Comunicacion {
-  id           Int         @id @default(autoincrement())
-  alumnoId     Int         @map("alumno_id")
-  asignaturaId Int?        @map("asignatura_id")
-  fecha        DateTime    @default(now())
-  canal        String
-  motivo       String?
-  resumen      String?
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
-  alumno       Alumno      @relation(fields: [alumnoId], references: [id])
-  asignatura   Asignatura? @relation(fields: [asignaturaId], references: [id])
+model HiloComunicacion {
+  id            Int            @id @default(autoincrement())
+  alumnoId      Int            @map("alumno_id")
+  asignaturaId  Int?           @map("asignatura_id")
+  asunto        String
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  alumno        Alumno         @relation(fields: [alumnoId], references: [id])
+  asignatura    Asignatura?    @relation(fields: [asignaturaId], references: [id])
+  interacciones Comunicacion[]
 
+  @@index([alumnoId, createdAt])
+  @@index([asignaturaId])
+  @@map("hilos_comunicacion")
+}
+
+model Comunicacion {
+  id            Int                   @id @default(autoincrement())
+  hiloId        Int?                  @map("hilo_id")
+  alumnoId      Int                   @map("alumno_id")
+  asignaturaId  Int?                  @map("asignatura_id")
+  fecha         DateTime              @default(now())
+  direccion     DireccionComunicacion @default(SALIENTE)
+  canal         String
+  motivo        String?
+  resumen       String?
+  observaciones String?
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+  hilo          HiloComunicacion?     @relation(fields: [hiloId], references: [id])
+  alumno        Alumno                @relation(fields: [alumnoId], references: [id])
+  asignatura    Asignatura?           @relation(fields: [asignaturaId], references: [id])
+
+  @@index([hiloId, fecha])
   @@index([alumnoId, fecha])
   @@map("comunicaciones")
 }
