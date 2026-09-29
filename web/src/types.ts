@@ -383,14 +383,36 @@ export type Incident = {
   _count?: { seguimientos: number };
 };
 
-export type Communication = {
+export type CommunicationDirection = "ENTRANTE" | "SALIENTE";
+
+export type CommunicationInteraction = {
   id: number;
+  hiloId: number | null;
   fecha: string;
+  direccion: CommunicationDirection;
   canal: string;
   motivo: string | null;
   resumen: string | null;
+  observaciones: string | null;
+};
+
+export type Communication = CommunicationInteraction & {
   alumno: StudentSummary;
   asignatura: Subject | null;
+  hilo?: {
+    id: number;
+    asunto: string;
+  } | null;
+};
+
+export type CommunicationThread = {
+  id: number;
+  asunto: string;
+  createdAt: string;
+  updatedAt: string;
+  alumno: StudentSummary;
+  asignatura: Subject | null;
+  interacciones: CommunicationInteraction[];
 };
 
 export type AttendanceReportResponse = {

@@ -233,7 +233,6 @@ export function StudentDetailPage({ studentId, onBack, onOpenPersonalTutoring }:
         {alumno.tutorizadoPersonalmente && <a href="#contactos-personales">Seguimiento personal</a>}
         <a href="#seguimientos">Seguimientos</a>
         <a href="#incidencias">Incidencias</a>
-        <a href="#comunicaciones">Comunicaciones</a>
         <a href="#cronologia">Cronología</a>
       </nav>
 
@@ -475,20 +474,6 @@ export function StudentDetailPage({ studentId, onBack, onOpenPersonalTutoring }:
                 <p>{incident.descripcion}</p>
                 <p><b>Fecha:</b> {dateTime(incident.fecha)} · <b>Asignatura:</b> {incident.asignatura?.nombre || "General"}</p>
                 {incident.resolucion && <p><b>Resolución:</b> {incident.resolucion}</p>}
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="student-section" id="comunicaciones">
-        <div className="section-title"><div><p className="eyebrow">CONTACTOS</p><h3>Comunicaciones</h3></div><span className="section-count">{data.comunicaciones.length}</span></div>
-        {data.comunicaciones.length === 0 ? <Empty text="No hay comunicaciones registradas." /> : (
-          <div className="timeline-list">
-            {data.comunicaciones.map((communication) => (
-              <article className="timeline-item" key={communication.id}>
-                <div className="timeline-date">{dateTime(communication.fecha)}</div>
-                <div className="timeline-body"><div className="timeline-heading"><strong>{communication.motivo || "Comunicación"}</strong><span>{communication.canal}</span></div><p>{communication.asignatura?.nombre || "General"}</p>{communication.resumen && <p>{communication.resumen}</p>}</div>
               </article>
             ))}
           </div>
