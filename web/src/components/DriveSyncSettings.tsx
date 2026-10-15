@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 type Copy = { name: string; modifiedAt: string; sizeBytes: number };
+type SyncStatus = { configured: boolean; latest: string | null; current: string | null; needsReview: boolean; reason: string };
 
 export function DriveSyncSettings() {
   const [folder, setFolder] = useState("");
@@ -9,6 +10,7 @@ export function DriveSyncSettings() {
   const [passphrase, setPassphrase] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
+  const [sync, setSync] = useState<SyncStatus | null>(null);
 
   async function call(route: string, method = "GET", data?: object) {
     const res = await fetch("/api/drive-sync/" + route, {
@@ -22,6 +24,7 @@ export function DriveSyncSettings() {
   async function refresh() {
     const rows = await call("packages");
     setCopies(rows);
+    setSync(await call("status"));
   }
   useEffect(() => {
     void call("settings").then(data => {
@@ -38,8 +41,9 @@ export function DriveSyncSettings() {
   }
   return (
     <section className="panel">
-      <h3>Google Drive · Transferencia manual cifrada</h3>
-      <p>Instala Google Drive para ordenadores y utiliza una carpeta sincronizada disponible sin conexión. No trabajes en ambos equipos al mismo tiempo.</p>
+      <h3>Google Drive · Cambio seguro de equipo</h3>
+      <p>Comprueba la versión disponible antes de trabajar. Al finalizar, guarda una copia cifrada para continuar en el otro equipo. No utilices ambos equipos a la vez.</p>
+      {sync && <p role="status" className={sync.needsReview ? "notice-banner warning" : "backup-note"}><strong>{sync.needsReview ? "Revisar antes de trabajar: " : "Estado: "}</strong>{sync.reason}</p>}
       <div className="form-stack">
         <label>Carpeta local de Google Drive
           <input value={folder} onChange={e => { setFolder(e.target.value); setReady(false); }} placeholder="Ruta completa a la carpeta sincronizada" />
@@ -52,10 +56,11 @@ export function DriveSyncSettings() {
           <input type="password" autoComplete="off" value={passphrase} onChange={e => setPassphrase(e.target.value)} />
         </label>
         <p>La contraseña no se almacena. Debes utilizar la misma en los dos equipos.</p>
-        <button className="primary" type="button" disabled={busy || !ready || passphrase.length < 12} onClick={() => void perform(async () => {
+        <button className="primary" type="button" disabled={busy || !ready || passphrase.length < 12 || Boolean(sync?.needsReview)} onClick={() => void perform(async () => {
+          if (!window.confirm("¿Has terminado de trabajar y guardado los cambios? Se generará la copia para continuar en el otro equipo.")) return "Operación cancelada.";
           const result = await call("export", "POST", { passphrase }); await refresh();
           return "Copia cifrada creada: " + result.name + ". Espera a que Google Drive termine la sincronización.";
-        })}>Guardar copia cifrada en Drive</button>
+        })}>{busy ? "Guardando…" : "Guardar y terminar en este equipo"}</button>
         <button className="secondary" type="button" disabled={busy || !ready} onClick={() => void perform(async () => {
           await refresh(); return "Listado actualizado.";
         })}>Actualizar listado</button>
@@ -72,6 +77,7 @@ export function DriveSyncSettings() {
           </div>
         ))}
         {status && <p role="status">{status}</p>}
+        <p className="backup-note">Google Drive puede tardar en descargar archivos de otro equipo. Comprueba que el archivo más reciente esté disponible antes de restaurarlo. Esta fase no impide técnicamente que los dos ordenadores trabajen a la vez.</p>
       </div>
     </section>
   );
