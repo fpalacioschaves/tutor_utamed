@@ -22,6 +22,7 @@ import { alertsRouter } from "./routes/alerts";
 import { materialsRouter } from "./routes/materials";
 import { calendarRouter } from "./routes/calendar";
 import { backupsRouter } from "./routes/backups";
+import { driveSyncRouter } from "./routes/drive-sync";
 
 export const app = express();
 
@@ -41,6 +42,7 @@ app.use("/api/subjects", subjectsRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/calendar", calendarRouter);
 app.use("/api/backups", backupsRouter);
+app.use("/api/drive-sync", driveSyncRouter);
 app.use("/api/sessions", tutorialBookingsRouter);
 app.use("/api/sessions", sessionsRouter);
 app.use("/api/activities", activitiesRouter);
