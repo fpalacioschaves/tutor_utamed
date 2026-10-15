@@ -34,6 +34,7 @@ function App() {
   const [activityId, setActivityId] = useState<number | null>(null);
   const [apiStatus, setApiStatus] = useState<"checking" | "ok" | "error">("checking");
   const [detailDirty, setDetailDirty] = useState(false);
+  const [driveNotice, setDriveNotice] = useState("");
 
   useEffect(() => {
     fetch("/api/health")
@@ -43,6 +44,17 @@ function App() {
       })
       .catch(() => setApiStatus("error"));
   }, []);
+
+  useEffect(() => {
+    if (apiStatus !== "ok") return;
+    fetch("/api/drive-sync/status")
+      .then(async response => {
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.needsReview) setDriveNotice(data.reason || "Comprueba Google Drive antes de trabajar.");
+      })
+      .catch(() => undefined);
+  }, [apiStatus]);
 
   function navigate(label: string) {
     if (detailDirty && !window.confirm("Hay cambios sin guardar. ¿Quieres salir y descartarlos?")) return;
@@ -159,6 +171,13 @@ function App() {
       </aside>
 
       <main>
+        {driveNotice && (
+          <div className="notice-banner warning" role="alert">
+            <strong>Google Drive:</strong> {driveNotice}{" "}
+            <button type="button" className="secondary compact-button" onClick={() => navigate("Configuración")}>Ver copias</button>
+            <button type="button" className="secondary compact-button" onClick={() => setDriveNotice("")}>Ocultar aviso</button>
+          </div>
+        )}
         {sessionId !== null ? (
           <SessionDetailPage sessionId={sessionId} onDirtyChange={setDetailDirty} onBack={() => { setDetailDirty(false); setSessionId(null); }} />
         ) : studentId !== null ? (

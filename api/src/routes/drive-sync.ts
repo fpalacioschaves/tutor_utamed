@@ -1,11 +1,14 @@
 import { Router } from "express";
-import { exportDrivePackage, importDrivePackage, listDrivePackages, readDriveConfig, writeDriveConfig } from "../services/drive-sync";
+import { driveSyncStatus, exportDrivePackage, importDrivePackage, listDrivePackages, readDriveConfig, writeDriveConfig } from "../services/drive-sync";
 
 export const driveSyncRouter = Router();
 
 function respondError(res: any, error: unknown) {
   res.status(400).json({ error: error instanceof Error ? error.message : "No se pudo realizar la operación" });
 }
+driveSyncRouter.get("/status", async (_req, res) => {
+  try { res.json(await driveSyncStatus()); } catch (error) { respondError(res, error); }
+});
 driveSyncRouter.get("/settings", async (_req, res) => {
   try { res.json(await readDriveConfig()); } catch (error) { respondError(res, error); }
 });

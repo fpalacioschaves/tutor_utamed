@@ -8,6 +8,7 @@ const ROOT = path.resolve(__dirname, "../../..");
 const BACKUPS = path.join(ROOT, "local-backups");
 const CONFIG = path.join(ROOT, "local-private", "drive-sync-settings.json");
 const EXT = ".utamed.enc";
+const STATE = path.join(ROOT, "local-private", "drive-sync-state.json");
 const MAX_RAW_BYTES = 150 * 1024 * 1024;
 const MAX_PACKAGE_BYTES = 170 * 1024 * 1024;
 
@@ -130,15 +131,47 @@ export async function listDrivePackages() {
   }
   return items.sort((a,b)=>b.name.localeCompare(a.name));
 }
+async function getSyncState(): Promise<string | null> {
+  try {
+    const state = JSON.parse(await fs.readFile(STATE, "utf8"));
+    return typeof state.latest === "string" ? state.latest : null;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+}
+export async function recordDriveRestore(name: string) {
+  basenameSafe(name);
+  await fs.mkdir(path.dirname(STATE), { recursive: true });
+  await fs.writeFile(STATE, JSON.stringify({ latest: name }, null, 2), { mode: 0o600 });
+}
+export async function driveSyncStatus() {
+  const config = await readDriveConfig();
+  if (!config.folder) return { configured: false, latest: null, current: null, needsReview: false, reason: "Configura Google Drive en este equipo." };
+  const packages = await listDrivePackages();
+  const latest = packages[0]?.name ?? null;
+  const current = await getSyncState();
+  return {
+    configured: true, latest, current,
+    needsReview: Boolean(latest && latest !== current),
+    reason: latest && latest !== current
+      ? "La copia más reciente de Drive no está registrada como restaurada o exportada desde este equipo. Antes de continuar, comprueba si debes recuperarla."
+      : latest ? "Este equipo está alineado con la última copia disponible en la carpeta local de Drive." : "No hay copias cifradas en la carpeta.",
+  };
+}
 export async function exportDrivePackage(passphrase: unknown) {
   checkPassphrase(passphrase);
   const folder = await configuredFolder();
+  const before = await driveSyncStatus();
+  if (before.needsReview) throw new Error("Hay una copia de Drive que este equipo no ha recuperado. Revisa y restaura la última versión antes de exportar para evitar sobrescrituras.");
   const backup = await createBackup("MANUAL");
   const backupDirectory = path.join(BACKUPS, backup.name);
   const bundle: Bundle = { format: "utamed-backup-v1", createdAt: backup.createdAt, entries: await collectFiles(backupDirectory) };
   const encrypted = encrypt(bundle, passphrase);
   if (encrypted.length > MAX_PACKAGE_BYTES) throw new Error("La copia cifrada es demasiado grande para la primera versión.");
   const name = "tutor-utamed-" + backup.createdAt.replace(/[:.]/g, "-") + "-" + randomBytes(6).toString("hex") + EXT;
+  const newest = (await listDrivePackages())[0]?.name ?? null;
+  if (newest !== before.latest) throw new Error("Apareció otra copia durante la exportación. Se ha cancelado para evitar un conflicto.");
   const destination = path.join(folder, name);
   const temp = destination + ".pending";
   try {
@@ -147,6 +180,7 @@ export async function exportDrivePackage(passphrase: unknown) {
   } finally {
     await fs.rm(temp, { force: true }).catch(() => undefined);
   }
+  await recordDriveRestore(name);
   return { name, createdAt: backup.createdAt, sizeBytes: encrypted.length, localBackup: backup.name };
 }
 export async function importDrivePackage(nameValue: unknown, passphrase: unknown) {
@@ -189,6 +223,7 @@ export async function importDrivePackage(nameValue: unknown, passphrase: unknown
     manifest.name = restoreName;
     manifest.relativePath = path.join("local-backups", restoreName);
     manifest.kind = "MANUAL";
+    manifest.driveOriginName = name;
     await fs.writeFile(path.join(staging, "manifest.json"), JSON.stringify(manifest, null, 2));
     return { name: restoreName, createdAt: bundle.createdAt };
   } catch (error) {
