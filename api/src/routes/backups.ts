@@ -2,6 +2,7 @@ import { Router } from "express";
 import { promises as fs } from "fs";
 import path from "path";
 import { prisma } from "../lib/prisma";
+import { recordDriveRestore } from "../services/drive-sync";
 
 export const backupsRouter = Router();
 
@@ -296,6 +297,12 @@ backupsRouter.post("/:name/restore", async (req, res, next) => {
 
     try {
       await applyBackup(directory, manifest);
+      const origin = (manifest as BackupManifest & { driveOriginName?: string }).driveOriginName;
+      if (origin) {
+        await recordDriveRestore(origin);
+      } else {
+        await fs.rm(path.join(REPO_ROOT, "local-private", "drive-sync-state.json"), { force: true });
+      }
     } catch (restoreError) {
       const safetyDirectory = resolveBackupDirectory(safetyBackup.name);
       try {
