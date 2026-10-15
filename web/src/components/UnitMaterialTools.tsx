@@ -7,21 +7,7 @@ type MaterialItem = {
   extension: string;
   mimeType: string;
   sizeBytes: number;
-  extractionStatus: "READY" | "UNSUPPORTED" | "EMPTY" | "ERROR";
-  extractionMessage: string | null;
-  extractedChars: number;
   createdAt: string;
-};
-
-type TeachingMode = "CUSTOM" | "EXERCISES" | "SOLVED_EXERCISE" | "PRACTICE" | "EXPLANATION" | "REVIEW";
-
-type AiResult = {
-  mode: TeachingMode;
-  model: string;
-  content: string;
-  sources: Array<{ id: string; name: string; extractedChars: number }>;
-  truncated: boolean;
-  generatedAt: string;
 };
 
 type Props = {
@@ -32,25 +18,10 @@ type Props = {
   };
 };
 
-const AI_ACTIONS: Array<{ mode: Exclude<TeachingMode, "CUSTOM">; label: string }> = [
-  { mode: "EXERCISES", label: "Generar ejercicios" },
-  { mode: "SOLVED_EXERCISE", label: "Ejercicio resuelto" },
-  { mode: "PRACTICE", label: "Crear práctica" },
-  { mode: "EXPLANATION", label: "Preparar explicación" },
-  { mode: "REVIEW", label: "Generar repaso" },
-];
-
 function formatBytes(value: number) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function extractionLabel(material: MaterialItem) {
-  if (material.extractionStatus === "READY") return `${material.extractedChars.toLocaleString("es-ES")} caracteres preparados para IA`;
-  if (material.extractionStatus === "EMPTY") return "Sin texto utilizable";
-  if (material.extractionStatus === "ERROR") return "Error al procesar el texto";
-  return "Guardado · sin extracción automática";
 }
 
 function fileToDataUrl(file: File) {
@@ -69,9 +40,6 @@ export function UnitMaterialTools({ unit }: Props) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [aiLoading, setAiLoading] = useState<TeachingMode | null>(null);
-  const [aiResult, setAiResult] = useState<AiResult | null>(null);
-  const [instruction, setInstruction] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   async function loadMaterials() {
@@ -146,50 +114,10 @@ export function UnitMaterialTools({ unit }: Props) {
     }
   }
 
-  async function generate(mode: TeachingMode) {
-    if (mode === "CUSTOM" && !instruction.trim()) {
-      setError("Escribe qué quieres pedir a la IA sobre esta unidad.");
-      return;
-    }
-
-    setAiLoading(mode);
-    setAiResult(null);
-    setError("");
-    setMessage("");
-    try {
-      const response = await fetch(`/api/ai/units/${unit.id}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, instruction }),
-      });
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error ?? "No se pudo generar la respuesta");
-      }
-      setAiResult(await response.json());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo generar la respuesta");
-    } finally {
-      setAiLoading(null);
-    }
-  }
-
-  async function copyResult() {
-    if (!aiResult) return;
-    try {
-      await navigator.clipboard.writeText(aiResult.content);
-      setMessage("Resultado copiado al portapapeles.");
-    } catch {
-      setMessage("No se pudo copiar automáticamente. Puedes seleccionar el texto manualmente.");
-    }
-  }
-
-  const readyMaterials = materials.filter((material) => material.extractionStatus === "READY");
-
   return (
     <div className="unit-material-tools">
       <button className="unit-tools-toggle" type="button" onClick={() => setOpen((value) => !value)}>
-        <span>Material docente e IA</span>
+        <span>Material docente</span>
         <span>{open ? "Cerrar" : "Abrir"}</span>
       </button>
 
@@ -208,7 +136,6 @@ export function UnitMaterialTools({ unit }: Props) {
                   type="file"
                   multiple
                   disabled={uploading}
-                  accept=".txt,.md,.markdown,.html,.htm,.xhtml,.xml,.json,.csv,.sql,.js,.jsx,.ts,.tsx,.java,.php,.css,.py,.docx,.odt,.elp,.zip,.pdf"
                   onChange={(event) => void uploadFiles(event.target.files)}
                 />
               </label>
@@ -221,15 +148,14 @@ export function UnitMaterialTools({ unit }: Props) {
             ) : (
               <>
                 <p className="muted">
-                  {materials.length} archivo{materials.length === 1 ? "" : "s"} asociado{materials.length === 1 ? "" : "s"} · {readyMaterials.length} preparado{readyMaterials.length === 1 ? "" : "s"} para IA
+                  {materials.length} archivo{materials.length === 1 ? "" : "s"} asociado{materials.length === 1 ? "" : "s"}
                 </p>
                 <div className="unit-material-list">
                   {materials.map((material) => (
                     <article className="unit-material-row" key={material.id}>
                       <div>
                         <strong>{material.originalName}</strong>
-                        <small>{formatBytes(material.sizeBytes)} · {extractionLabel(material)}</small>
-                        {material.extractionMessage && <small className="material-warning">{material.extractionMessage}</small>}
+                        <small>{formatBytes(material.sizeBytes)}</small>
                       </div>
                       <div className="row-actions">
                         <a className="secondary compact-button material-link" href={`/api/materials/${material.id}/file`} target="_blank" rel="noreferrer">Abrir</a>
@@ -239,73 +165,6 @@ export function UnitMaterialTools({ unit }: Props) {
                   ))}
                 </div>
               </>
-            )}
-          </section>
-
-          <section className="unit-tools-section unit-ai-section">
-            <div className="unit-tools-heading">
-              <div>
-                <strong>Preguntar a la IA sobre esta unidad</strong>
-                <small>Ollama utilizará automáticamente todos los archivos de esta unidad que estén preparados para IA.</small>
-              </div>
-            </div>
-
-            <label className="unit-ai-instruction">
-              ¿Qué quieres hacer con esta unidad?
-              <textarea
-                rows={4}
-                value={instruction}
-                onChange={(event) => setInstruction(event.target.value)}
-                placeholder="Ej. Genera 4 ejercicios únicamente sobre arrays bidimensionales; prepara una explicación de XPath; crea una práctica de 45 minutos sobre esta temática…"
-              />
-            </label>
-
-            <div className="unit-ai-actions">
-              <button
-                className="primary compact-button"
-                type="button"
-                disabled={aiLoading !== null || !instruction.trim() || readyMaterials.length === 0}
-                onClick={() => void generate("CUSTOM")}
-              >
-                {aiLoading === "CUSTOM" ? "Consultando…" : "Preguntar a la IA"}
-              </button>
-            </div>
-
-            <div className="unit-ai-presets">
-              <small className="muted">Accesos rápidos opcionales</small>
-              <div className="unit-ai-actions">
-                {AI_ACTIONS.map((action) => (
-                  <button
-                    className="secondary compact-button"
-                    key={action.mode}
-                    type="button"
-                    disabled={aiLoading !== null || readyMaterials.length === 0}
-                    onClick={() => void generate(action.mode)}
-                  >
-                    {aiLoading === action.mode ? "Generando…" : action.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {readyMaterials.length === 0 && materials.length > 0 && (
-              <p className="material-warning">Ningún archivo de esta unidad está preparado todavía para IA.</p>
-            )}
-
-            {aiResult && (
-              <article className="unit-ai-result">
-                <div className="unit-ai-result-heading">
-                  <div>
-                    <strong>Respuesta de la IA</strong>
-                    <small>
-                      Modelo: {aiResult.model} · {aiResult.sources.length} archivo{aiResult.sources.length === 1 ? "" : "s"} utilizado{aiResult.sources.length === 1 ? "" : "s"}
-                      {aiResult.truncated ? " · contexto recortado por longitud" : ""}
-                    </small>
-                  </div>
-                  <button className="secondary compact-button" type="button" onClick={() => void copyResult()}>Copiar</button>
-                </div>
-                <pre>{aiResult.content}</pre>
-              </article>
             )}
           </section>
 
