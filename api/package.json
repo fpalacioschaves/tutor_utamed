@@ -19,14 +19,17 @@
     "db:repair-student-groups": "node scripts/check-db-present.mjs && node scripts/ensure-student-group-schema.mjs && prisma generate",
     "db:repair-tutorial-bookings": "node scripts/check-db-present.mjs && node scripts/ensure-tutorial-bookings-schema.mjs && prisma generate",
     "db:repair-personal-tutoring": "node scripts/check-db-present.mjs && node scripts/ensure-personal-tutoring-schema.mjs && prisma generate",
-    "db:repair-communications": "node scripts/check-db-present.mjs && node scripts/ensure-communications-schema.mjs && prisma generate"
+    "db:repair-communications": "node scripts/check-db-present.mjs && node scripts/ensure-communications-schema.mjs && prisma generate",
+    "turso:check": "tsx scripts/check-turso.ts"
   },
   "dependencies": {
     "@prisma/client": "6.19.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.2.1",
-    "pdf-parse": "1.1.4"
+    "pdf-parse": "1.1.4",
+    "@prisma/adapter-libsql": "6.19.0",
+    "@libsql/client": "^0.15.15"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
