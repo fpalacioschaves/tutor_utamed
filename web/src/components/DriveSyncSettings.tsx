@@ -44,6 +44,19 @@ export function DriveSyncSettings() {
       <h3>Google Drive · Cambio seguro de equipo</h3>
       <p>Comprueba la versión disponible antes de trabajar. Al finalizar, guarda una copia cifrada para continuar en el otro equipo. No utilices ambos equipos a la vez.</p>
       {sync && <p role="status" className={sync.needsReview ? "notice-banner warning" : "backup-note"}><strong>{sync.needsReview ? "Revisar antes de trabajar: " : "Estado: "}</strong>{sync.reason}</p>}
+      {sync?.needsReview && sync.latest && (
+        <div className="backup-note">
+          <p>Si ya tienes en este equipo los datos correctos y has añadido registros nuevos, puedes conservarlos sin restaurar una copia antigua. Se hará una copia de seguridad antes de confirmar.</p>
+          <button className="secondary" type="button" disabled={busy} onClick={() => {
+            if (!window.confirm("Confirma únicamente si este equipo contiene los datos que quieres conservar y ninguna otra máquina tiene cambios posteriores pendientes de subir. Se creará primero una copia de seguridad local. ¿Continuar?")) return;
+            void perform(async () => {
+              const result = await call("acknowledge", "POST", { expectedLatest: sync.latest });
+              await refresh();
+              return "Datos actuales confirmados sin reemplazarlos. Copia de seguridad: " + result.safetyBackup + ". Ya puedes usar Guardar y terminar.";
+            });
+          }}>Confirmar datos actuales</button>
+        </div>
+      )}
       <div className="form-stack">
         <label>Carpeta local de Google Drive
           <input value={folder} onChange={e => { setFolder(e.target.value); setReady(false); }} placeholder="Ruta completa a la carpeta sincronizada" />
