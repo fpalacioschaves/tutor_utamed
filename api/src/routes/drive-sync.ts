@@ -42,9 +42,6 @@ driveSyncRouter.post("/resume", async (req, res) => {
     if (!status.configured || !status.latest || expected !== status.latest) {
       throw new Error("Google Drive ha cambiado o no está preparado. Actualiza antes de continuar.");
     }
-    if (!status.needsReview) {
-      throw new Error("Este equipo ya registra la última copia. No es necesario restaurar.");
-    }
     const staged = await importDrivePackage(status.latest, req.body?.passphrase);
     const check = await driveSyncStatus();
     if (check.latest !== expected) {

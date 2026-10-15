@@ -69,7 +69,7 @@ export function DriveSyncSettings() {
           <input type="password" autoComplete="off" value={passphrase} onChange={e => setPassphrase(e.target.value)} />
         </label>
         <p>La contraseña no se almacena. Debes utilizar la misma en los dos equipos.</p>
-        <button className="primary" type="button" disabled={busy || !ready || passphrase.length < 12 || !sync?.needsReview || !sync.latest} onClick={() => {
+        <button className="primary" type="button" disabled={busy || !ready || passphrase.length < 12 || !sync?.latest} onClick={() => {
           if (!sync?.latest) return;
           if (!window.confirm("Se restaurará la última copia cifrada de Google Drive. Se guardará automáticamente una copia de seguridad de los datos que hay ahora en este equipo. Si has hecho cambios locales sin subirlos, detente. ¿Continuar?")) return;
           void perform(async () => {
