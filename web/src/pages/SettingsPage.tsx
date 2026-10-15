@@ -1,4 +1,5 @@
 import { BackupSettings } from "../components/BackupSettings";
+import { DriveSyncSettings } from "../components/DriveSyncSettings";
 
 export function SettingsPage() {
   return (
@@ -11,6 +12,7 @@ export function SettingsPage() {
         </div>
       </header>
       <BackupSettings />
+      <DriveSyncSettings />
     </>
   );
 }
