@@ -502,31 +502,3 @@ export type AlertsResponse = {
   total: number;
 };
 
-export type AiConfig = {
-  enabled: boolean;
-  baseUrl: string;
-  model: string;
-};
-
-export type AiDataUsage = {
-  matriculas: number;
-  sesiones: number;
-  observacionesClase: number;
-  actividades: number;
-  actividadesCalificadas: number;
-  tutorias: number;
-  seguimientos: number;
-  incidencias: number;
-  comunicaciones: number;
-  truncado: boolean;
-};
-
-export type AiAnalysisMode = "SUMMARY" | "TUTORIAL" | "EVOLUTION";
-
-export type AiAnalysisResponse = {
-  mode: AiAnalysisMode;
-  model: string;
-  content: string;
-  dataUsed: AiDataUsage;
-  generatedAt: string;
-};
