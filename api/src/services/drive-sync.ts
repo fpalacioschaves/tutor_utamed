@@ -159,6 +159,23 @@ export async function driveSyncStatus() {
       : latest ? "Este equipo está alineado con la última copia disponible en la carpeta local de Drive." : "No hay copias cifradas en la carpeta.",
   };
 }
+// Explicit one-time adoption of local data from a previous app version.
+// Never touches the active database, and refuses to acknowledge a changed Drive snapshot.
+export async function acknowledgeCurrentData(expectedLatest: unknown) {
+  if (typeof expectedLatest !== "string") throw new Error("Falta identificar la copia que has revisado.");
+  basenameSafe(expectedLatest);
+  const initial = await driveSyncStatus();
+  if (!initial.needsReview || initial.latest !== expectedLatest) {
+    throw new Error("La versión de Google Drive ha cambiado. Actualiza el listado y revisa la situación.");
+  }
+  const safety = await createBackup("MANUAL");
+  const after = await driveSyncStatus();
+  if (after.latest !== expectedLatest) {
+    throw new Error("Google Drive cambió durante la operación; la base local se ha guardado, pero no se ha confirmado la versión.");
+  }
+  await recordDriveRestore(expectedLatest);
+  return { safetyBackup: safety.name, acknowledged: expectedLatest };
+}
 export async function exportDrivePackage(passphrase: unknown) {
   checkPassphrase(passphrase);
   const folder = await configuredFolder();
