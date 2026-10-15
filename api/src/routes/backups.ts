@@ -247,6 +247,31 @@ async function applyBackup(directory: string, manifest: BackupManifest) {
   }
 }
 
+// El cambio de equipo recupera de una vez la copia cifrada ya preparada.
+export async function restorePreparedDriveBackup(name: string) {
+  const directory = resolveBackupDirectory(name);
+  if (!(await exists(directory))) throw new Error("La copia descifrada no existe.");
+  const manifest = await getManifest(directory, name);
+  const origin = (manifest as BackupManifest & { driveOriginName?: string }).driveOriginName;
+  if (!origin || !manifest.includes.database) throw new Error("La copia no procede de Google Drive o no tiene base de datos.");
+  await validateBackupContents(directory, manifest);
+  // Conservamos el estado local ANTES de sustituirlo.
+  const safetyBackup = await createBackup("PRE_RESTORE");
+  try {
+    await applyBackup(directory, manifest);
+    await recordDriveRestore(origin);
+  } catch (restoreError) {
+    try {
+      await applyBackup(resolveBackupDirectory(safetyBackup.name), safetyBackup);
+    } catch (rollbackError) {
+      throw new Error("Falló la recuperación y también la vuelta a la copia de seguridad. No continúes trabajando hasta revisarlo. " +
+        String(restoreError) + " / " + String(rollbackError));
+    }
+    throw restoreError;
+  }
+  return { restored: name, driveOriginName: origin, safetyBackup: safetyBackup.name };
+}
+
 backupsRouter.get("/", async (_req, res, next) => {
   try {
     await fs.mkdir(BACKUPS_ROOT, { recursive: true });
