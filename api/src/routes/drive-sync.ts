@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { driveSyncStatus, exportDrivePackage, importDrivePackage, listDrivePackages, readDriveConfig, writeDriveConfig } from "../services/drive-sync";
+import { acknowledgeCurrentData, driveSyncStatus, exportDrivePackage, importDrivePackage, listDrivePackages, readDriveConfig, writeDriveConfig } from "../services/drive-sync";
 
 export const driveSyncRouter = Router();
 
@@ -24,5 +24,10 @@ driveSyncRouter.post("/export", async (req, res) => {
 });
 driveSyncRouter.post("/import", async (req, res) => {
   try { res.status(201).json(await importDrivePackage(req.body?.name, req.body?.passphrase)); }
+  catch (error) { respondError(res, error); }
+});
+
+driveSyncRouter.post("/acknowledge", async (req, res) => {
+  try { res.json(await acknowledgeCurrentData(req.body?.expectedLatest)); }
   catch (error) { respondError(res, error); }
 });
