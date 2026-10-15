@@ -204,7 +204,7 @@ export function ContentsPage() {
         <div>
           <p className="eyebrow">PROGRAMACIÓN DOCENTE</p>
           <h2>Contenidos</h2>
-          <p>Cada unidad puede incluir material docente privado y usarlo con Ollama para preparar ejercicios, prácticas, explicaciones y repasos.</p>
+          <p>Cada unidad puede incluir material docente privado asociado a su programación.</p>
         </div>
         <div className="contents-header-actions">
           <label>

@@ -1,4 +1,3 @@
-import { AIConfigInline } from "../components/AIConfigInline";
 import { BackupSettings } from "../components/BackupSettings";
 import { MaintenanceSettings } from "../components/MaintenanceSettings";
 import { AcademicScheduleImportSettings } from "../components/AcademicScheduleImportSettings";
@@ -19,16 +18,6 @@ export function SettingsPage() {
       <MaintenanceSettings />
       <AcademicScheduleImportSettings />
       <GroupTutorialScheduleSettings />
-
-      <section className="panel">
-        <div className="unit-tools-heading">
-          <div>
-            <strong>Inteligencia artificial local</strong>
-            <small>Configuración global de Ollama para toda la aplicación.</small>
-          </div>
-        </div>
-        <AIConfigInline />
-      </section>
     </>
   );
 }

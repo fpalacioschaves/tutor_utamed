@@ -19,8 +19,6 @@ import { followUpsRouter } from "./routes/followups";
 import { incidentsRouter } from "./routes/incidents";
 import { communicationsRouter } from "./routes/communications";
 import { alertsRouter } from "./routes/alerts";
-import { aiRouter } from "./routes/ai";
-import { unitAiRouter } from "./routes/unit-ai";
 import { materialsRouter } from "./routes/materials";
 import { calendarRouter } from "./routes/calendar";
 import { backupsRouter } from "./routes/backups";
@@ -58,10 +56,6 @@ app.use("/api/follow-ups", followUpsRouter);
 app.use("/api/incidents", incidentsRouter);
 app.use("/api/communications", communicationsRouter);
 app.use("/api/alerts", alertsRouter);
-// Esta ruta debe ir antes del router general de IA: intercepta exclusivamente
-// /api/ai/units/:id/generate con el nuevo contexto por relevancia.
-app.use("/api/ai/units", unitAiRouter);
-app.use("/api/ai", aiRouter);
 app.use("/api/students", studentsRouter);
 app.use("/api/enrollments", enrollmentsRouter);
 app.use("/api/dashboard", dashboardRouter);

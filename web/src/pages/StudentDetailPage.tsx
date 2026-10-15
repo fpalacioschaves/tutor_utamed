@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { AiAnalysisMode, AiAnalysisResponse, AttendanceState, StudentDetailResponse } from "../types";
+import type { AttendanceState, StudentDetailResponse } from "../types";
 
 type Props = {
   studentId: number;
@@ -109,9 +109,6 @@ export function StudentDetailPage({ studentId, onBack, onEdit, onOpenPersonalTut
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("TODO");
-  const [aiResult, setAiResult] = useState<AiAnalysisResponse | null>(null);
-  const [aiLoading, setAiLoading] = useState<AiAnalysisMode | null>(null);
-  const [aiError, setAiError] = useState("");
 
   async function load() {
     setLoading(true);
@@ -131,30 +128,8 @@ export function StudentDetailPage({ studentId, onBack, onEdit, onOpenPersonalTut
   }
 
   useEffect(() => {
-    setAiResult(null);
-    setAiError("");
     void load();
   }, [studentId]);
-
-  async function runAi(mode: AiAnalysisMode) {
-    setAiLoading(mode);
-    setAiError("");
-    try {
-      const response = await fetch(`/api/ai/students/${studentId}/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error ?? "No se pudo generar el análisis con IA");
-      setAiResult(body);
-      window.setTimeout(() => document.getElementById("ia")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-    } catch (err) {
-      setAiError(err instanceof Error ? err.message : "No se pudo generar el análisis con IA");
-    } finally {
-      setAiLoading(null);
-    }
-  }
 
   const activityStats = useMemo(() => {
     if (!data) return { total: 0, completed: 0, average: null as number | null };
@@ -228,7 +203,6 @@ export function StudentDetailPage({ studentId, onBack, onEdit, onOpenPersonalTut
 
       <nav className="student-section-nav" aria-label="Secciones de la ficha del alumno">
         <a href="#resumen">Resumen</a>
-        <a href="#ia">IA</a>
         <a href="#matriculas">Matrícula</a>
         <a href="#asistencia">Asistencia</a>
         <a href="#observaciones">Observaciones</a>
@@ -266,51 +240,6 @@ export function StudentDetailPage({ studentId, onBack, onEdit, onOpenPersonalTut
           <article className="mini-stat"><span>Seguimientos</span><strong>{pendingFollowUps}</strong><small>pendientes</small></article>
           <article className="mini-stat"><span>Incidencias</span><strong>{data.incidencias.filter((item) => item.estado !== "RESUELTA").length}</strong><small>abiertas o en seguimiento</small></article>
         </div>
-      </section>
-
-      <section className="student-section ai-student-section" id="ia">
-        <div className="section-title">
-          <div><p className="eyebrow">INTELIGENCIA ARTIFICIAL LOCAL</p><h3>Asistente sobre este alumno</h3></div>
-          <span className="status-pill">Ollama local</span>
-        </div>
-        <p className="muted">La IA recibe únicamente los datos que ya existen en esta ficha. No puede acceder a Internet ni a información externa sobre el alumno.</p>
-        <div className="ai-action-grid">
-          <button type="button" disabled={aiLoading !== null} onClick={() => void runAi("SUMMARY")}>
-            {aiLoading === "SUMMARY" ? "Generando resumen…" : "Resumen académico"}
-          </button>
-          <button type="button" className="secondary" disabled={aiLoading !== null} onClick={() => void runAi("TUTORIAL")}>
-            {aiLoading === "TUTORIAL" ? "Preparando tutoría…" : "Preparar tutoría"}
-          </button>
-          <button type="button" className="secondary" disabled={aiLoading !== null} onClick={() => void runAi("EVOLUTION")}>
-            {aiLoading === "EVOLUTION" ? "Analizando evolución…" : "Analizar evolución"}
-          </button>
-        </div>
-
-        {aiError && <p className="form-error">{aiError}</p>}
-
-        {aiResult && (
-          <article className="ai-result-card">
-            <div className="data-card-title">
-              <strong>{aiResult.mode === "SUMMARY" ? "Resumen académico" : aiResult.mode === "TUTORIAL" ? "Preparación de tutoría" : "Análisis de evolución"}</strong>
-              <span className="status-pill">{aiResult.model}</span>
-            </div>
-            <div className="ai-result-text">{aiResult.content}</div>
-            <div className="ai-data-used">
-              <strong>Datos utilizados</strong>
-              <div className="subject-tags">
-                <span className="tag">{aiResult.dataUsed.sesiones} sesiones</span>
-                <span className="tag">{aiResult.dataUsed.observacionesClase} observaciones</span>
-                <span className="tag">{aiResult.dataUsed.actividades} actividades</span>
-                <span className="tag">{aiResult.dataUsed.actividadesCalificadas} calificadas</span>
-                <span className="tag">{aiResult.dataUsed.tutorias} tutorías</span>
-                <span className="tag">{aiResult.dataUsed.seguimientos} seguimientos</span>
-                <span className="tag">{aiResult.dataUsed.incidencias} incidencias</span>
-                <span className="tag">{aiResult.dataUsed.comunicaciones} comunicaciones</span>
-              </div>
-              {aiResult.dataUsed.truncado && <p className="muted">El expediente es muy extenso; se han enviado al modelo los registros más recientes de cada categoría.</p>}
-            </div>
-          </article>
-        )}
       </section>
 
       <section className="student-section" id="matriculas">
