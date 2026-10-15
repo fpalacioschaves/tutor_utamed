@@ -1,23 +1,16 @@
 import { BackupSettings } from "../components/BackupSettings";
-import { MaintenanceSettings } from "../components/MaintenanceSettings";
-import { AcademicScheduleImportSettings } from "../components/AcademicScheduleImportSettings";
-import { GroupTutorialScheduleSettings } from "../components/GroupTutorialScheduleSettings";
 
 export function SettingsPage() {
   return (
     <>
       <header className="page-header">
         <div>
-          <p className="eyebrow">AJUSTES GENERALES</p>
+          <p className="eyebrow">SEGURIDAD DE DATOS</p>
           <h2>Configuración</h2>
-          <p>Centraliza aquí las configuraciones generales y las herramientas de mantenimiento de Tutor UTAMED.</p>
+          <p>Gestiona las copias de seguridad de Tutor UTAMED. Las herramientas de carga inicial y limpieza masiva ya no están disponibles.</p>
         </div>
       </header>
-
       <BackupSettings />
-      <MaintenanceSettings />
-      <AcademicScheduleImportSettings />
-      <GroupTutorialScheduleSettings />
     </>
   );
 }

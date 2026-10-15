@@ -22,9 +22,6 @@ import { alertsRouter } from "./routes/alerts";
 import { materialsRouter } from "./routes/materials";
 import { calendarRouter } from "./routes/calendar";
 import { backupsRouter } from "./routes/backups";
-import { maintenanceRouter } from "./routes/maintenance";
-import { academicScheduleImportRouter } from "./routes/academic-schedule-import";
-import { groupTutorialScheduleRouter } from "./routes/group-tutorial-schedule";
 
 export const app = express();
 
@@ -44,9 +41,6 @@ app.use("/api/subjects", subjectsRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/calendar", calendarRouter);
 app.use("/api/backups", backupsRouter);
-app.use("/api/maintenance", maintenanceRouter);
-app.use("/api/academic-schedule", academicScheduleImportRouter);
-app.use("/api/group-tutorial-schedule", groupTutorialScheduleRouter);
 app.use("/api/sessions", tutorialBookingsRouter);
 app.use("/api/sessions", sessionsRouter);
 app.use("/api/activities", activitiesRouter);
