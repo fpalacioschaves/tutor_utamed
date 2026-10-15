@@ -6,7 +6,7 @@ import { createBackup } from "../routes/backups";
 
 const ROOT = path.resolve(__dirname, "../../..");
 const BACKUPS = path.join(ROOT, "local-backups");
-const CONFIG = path.join(ROOT, "local-data", "drive-sync-settings.json");
+const CONFIG = path.join(ROOT, "local-private", "drive-sync-settings.json");
 const EXT = ".utamed.enc";
 const MAX_RAW_BYTES = 150 * 1024 * 1024;
 const MAX_PACKAGE_BYTES = 170 * 1024 * 1024;
