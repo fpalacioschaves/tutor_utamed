@@ -41,8 +41,8 @@ export function DriveSyncSettings() {
   }
   return (
     <section className="panel">
-      <h3>Google Drive · Cambio seguro de equipo</h3>
-      <p>Comprueba la versión disponible antes de trabajar. Al finalizar, guarda una copia cifrada para continuar en el otro equipo. No utilices ambos equipos a la vez.</p>
+      <h3>Google Drive · Datos cifrados en ambos equipos</h3>
+      <p>En el equipo donde acabes: «Guardar y terminar». En el otro: «Continuar aquí». La contraseña es la misma en ambos y Google Drive debe haber terminado de sincronizar. No trabajes en ambos equipos simultáneamente.</p>
       {sync && <p role="status" className={sync.needsReview ? "notice-banner warning" : "backup-note"}><strong>{sync.needsReview ? "Revisar antes de trabajar: " : "Estado: "}</strong>{sync.reason}</p>}
       {sync?.needsReview && sync.latest && (
         <div className="backup-note">
@@ -69,6 +69,15 @@ export function DriveSyncSettings() {
           <input type="password" autoComplete="off" value={passphrase} onChange={e => setPassphrase(e.target.value)} />
         </label>
         <p>La contraseña no se almacena. Debes utilizar la misma en los dos equipos.</p>
+        <button className="primary" type="button" disabled={busy || !ready || passphrase.length < 12 || !sync?.needsReview || !sync.latest} onClick={() => {
+          if (!sync?.latest) return;
+          if (!window.confirm("Se restaurará la última copia cifrada de Google Drive. Se guardará automáticamente una copia de seguridad de los datos que hay ahora en este equipo. Si has hecho cambios locales sin subirlos, detente. ¿Continuar?")) return;
+          void perform(async () => {
+            const result = await call("resume", "POST", { passphrase, expectedLatest: sync.latest });
+            await refresh();
+            return "Recuperación completada. Respaldo local: " + result.safetyBackup + ". Recarga la página para ver los datos recuperados.";
+          });
+        }}>{busy ? "Recuperando…" : "Continuar aquí · recuperar última copia"}</button>
         <button className="primary" type="button" disabled={busy || !ready || passphrase.length < 12 || Boolean(sync?.needsReview)} onClick={() => void perform(async () => {
           if (!window.confirm("¿Has terminado de trabajar y guardado los cambios? Se generará la copia para continuar en el otro equipo.")) return "Operación cancelada.";
           const result = await call("export", "POST", { passphrase }); await refresh();
@@ -90,7 +99,7 @@ export function DriveSyncSettings() {
           </div>
         ))}
         {status && <p role="status">{status}</p>}
-        <p className="backup-note">Google Drive puede tardar en descargar archivos de otro equipo. Comprueba que el archivo más reciente esté disponible antes de restaurarlo. Esta fase no impide técnicamente que los dos ordenadores trabajen a la vez.</p>
+        <p className="backup-note">Protección: la recuperación guarda el estado anterior y se cancela si cambia la copia seleccionada. Google Drive puede tardar en descargar archivos; esta aplicación no puede detectar cambios que todavía no hayan llegado a Drive ni impedir el uso simultáneo de dos equipos.</p>
       </div>
     </section>
   );

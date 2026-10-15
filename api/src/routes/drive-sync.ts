@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { acknowledgeCurrentData, driveSyncStatus, exportDrivePackage, importDrivePackage, listDrivePackages, readDriveConfig, writeDriveConfig } from "../services/drive-sync";
 
+import { restorePreparedDriveBackup } from "./backups";
+
 export const driveSyncRouter = Router();
 
 function respondError(res: any, error: unknown) {
@@ -30,4 +32,24 @@ driveSyncRouter.post("/import", async (req, res) => {
 driveSyncRouter.post("/acknowledge", async (req, res) => {
   try { res.json(await acknowledgeCurrentData(req.body?.expectedLatest)); }
   catch (error) { respondError(res, error); }
+});
+
+// Un solo paso: descifrar la copia mas reciente y restaurarla con respaldo previo.
+driveSyncRouter.post("/resume", async (req, res) => {
+  try {
+    const status = await driveSyncStatus();
+    const expected = req.body?.expectedLatest;
+    if (!status.configured || !status.latest || expected !== status.latest) {
+      throw new Error("Google Drive ha cambiado o no está preparado. Actualiza antes de continuar.");
+    }
+    if (!status.needsReview) {
+      throw new Error("Este equipo ya registra la última copia. No es necesario restaurar.");
+    }
+    const staged = await importDrivePackage(status.latest, req.body?.passphrase);
+    const check = await driveSyncStatus();
+    if (check.latest !== expected) {
+      throw new Error("La copia más reciente cambió mientras se descifraba. No se ha restaurado.");
+    }
+    res.json(await restorePreparedDriveBackup(staged.name));
+  } catch (error) { respondError(res, error); }
 });
