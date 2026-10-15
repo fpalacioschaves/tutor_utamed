@@ -8,7 +8,8 @@ import { existsSync, mkdirSync } from "node:fs";
 const repo=resolve(dirname(fileURLToPath(import.meta.url)),"..","..");
 const origin=join(repo,"api","prisma","dev.db");
 const folder=join(repo,"local-private","turso-migration");
-const destination=join(folder,"tutor-utamed-migracion.db");
+const timestamp=new Date().toISOString().replace(/[:.]/g,"-");
+const destination=join(folder,`tutor-utamed-migracion-${timestamp}.db`);
 if(!existsSync(origin))throw new Error("ABORTADO: no se encuentra la base local.");
 if(existsSync(destination))throw new Error("ABORTADO: ya existe la copia; no se sobrescribe: "+destination);
 mkdirSync(folder,{recursive:true});
@@ -21,16 +22,13 @@ try{
   const counts=new Map(tableNames.map(table=>[table,Number(source.prepare('SELECT COUNT(*) AS n FROM "'+table.replaceAll('"','""')+'"').get().n)]));
   if(counts.get("alumnos")!==30||counts.get("matriculas")!==90)throw new Error("Recuentos inesperados; se esperaba 30 alumnos y 90 matrículas. No se crea copia.");
   await backup(source,destination);
-  snapshot=new DatabaseSync(destination,{fileMustExist:true});
+  snapshot=new DatabaseSync(destination,{readOnly:true,fileMustExist:true});
   if(snapshot.prepare("PRAGMA integrity_check").get()?.integrity_check!=="ok")throw new Error("La copia no supera integridad.");
   for(const [table,count] of counts){
     const current=Number(snapshot.prepare('SELECT COUNT(*) AS n FROM "'+table.replaceAll('"','""')+'"').get().n);
     if(current!==count)throw new Error("Recuento distinto en la tabla "+table);
   }
   if(snapshot.prepare("PRAGMA foreign_key_check").all().length)throw new Error("La copia contiene relaciones inconsistentes.");
-  // Turso recomienda WAL; alteramos solamente la copia, jamás el archivo original.
-  snapshot.prepare("PRAGMA journal_mode=WAL").get();
-  snapshot.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
   console.log("COPIA VERIFICADA:",destination);
   console.log("Tablas:",tableNames.length);
   console.log("Alumnos:",counts.get("alumnos"));
