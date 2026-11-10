@@ -5,9 +5,10 @@ import type {
   StudentSummary,
   Subject,
   SubjectOverviewReportResponse,
+  SessionGroupsReportResponse,
 } from "../types";
 
-type ReportTab = "student" | "attendance" | "overview";
+type ReportTab = "student" | "attendance" | "overview" | "sessionGroups";
 
 type SubjectOption = Subject & {
   activa?: boolean;
@@ -81,6 +82,7 @@ export function ReportsPage() {
   const [studentReport, setStudentReport] = useState<StudentDetailResponse | null>(null);
   const [attendanceReport, setAttendanceReport] = useState<AttendanceReportResponse | null>(null);
   const [overviewReport, setOverviewReport] = useState<SubjectOverviewReportResponse | null>(null);
+  const [sessionGroupsReport, setSessionGroupsReport] = useState<SessionGroupsReportResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -104,6 +106,7 @@ export function ReportsPage() {
     if (tab === "student" && studentId !== "") void loadStudentReport(studentId);
     if (tab === "attendance" && subjectId !== "") void loadAttendanceReport(subjectId);
     if (tab === "overview" && subjectId !== "") void loadOverviewReport(subjectId);
+    if (tab === "sessionGroups") void loadSessionGroupsReport();
   }, [tab]);
 
   async function loadStudentReport(id: number) {
@@ -154,6 +157,24 @@ export function ReportsPage() {
     }
   }
 
+  async function loadSessionGroupsReport() {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/reports/session-groups");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? "No se pudo generar el informe por sesiones");
+      }
+      setSessionGroupsReport(await response.json());
+    } catch (err) {
+      setSessionGroupsReport(null);
+      setError(err instanceof Error ? err.message : "No se pudo generar el informe");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const studentGradeAverage = useMemo(() => {
     if (!studentReport) return null;
     const values = studentReport.actividades
@@ -162,7 +183,7 @@ export function ReportsPage() {
     return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
   }, [studentReport]);
 
-  const hasReport = tab === "student" ? Boolean(studentReport) : tab === "attendance" ? Boolean(attendanceReport) : Boolean(overviewReport);
+  const hasReport = tab === "student" ? Boolean(studentReport) : tab === "attendance" ? Boolean(attendanceReport) : tab === "overview" ? Boolean(overviewReport) : Boolean(sessionGroupsReport);
 
   function printReport() {
     if (!hasReport) return;
@@ -187,6 +208,7 @@ export function ReportsPage() {
           <button className={tab === "student" ? "active" : ""} type="button" onClick={() => setTab("student")}>Alumno completo</button>
           <button className={tab === "attendance" ? "active" : ""} type="button" onClick={() => setTab("attendance")}>Asistencia por asignatura</button>
           <button className={tab === "overview" ? "active" : ""} type="button" onClick={() => setTab("overview")}>Seguimiento de clase</button>
+          <button className={tab === "sessionGroups" ? "active" : ""} type="button" onClick={() => setTab("sessionGroups")}>Asistencia por sesión y grupo</button>
         </div>
 
         {tab === "student" ? (
@@ -201,6 +223,10 @@ export function ReportsPage() {
             <button className="secondary" type="button" disabled={studentId === "" || loading} onClick={() => studentId !== "" && void loadStudentReport(studentId)}>
               Generar informe
             </button>
+          </div>
+        ) : tab === "sessionGroups" ? (
+          <div className="report-selector">
+            <button className="secondary" type="button" disabled={loading} onClick={() => void loadSessionGroupsReport()}>Actualizar informe</button>
           </div>
         ) : (
           <div className="report-selector">
@@ -236,6 +262,10 @@ export function ReportsPage() {
 
       {!loading && tab === "overview" && overviewReport ? (
         <SubjectOverviewReport report={overviewReport} />
+      ) : null}
+
+      {!loading && tab === "sessionGroups" && sessionGroupsReport ? (
+        <SessionGroupsReport report={sessionGroupsReport} />
       ) : null}
     </>
   );
@@ -482,6 +512,44 @@ function SubjectOverviewReport({ report }: { report: SubjectOverviewReportRespon
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+    </article>
+  );
+}
+
+function SessionGroupsReport({ report }: { report: SessionGroupsReportResponse }) {
+  return (
+    <article className="panel report-document printable-report landscape-report">
+      <ReportHeader title="Asistencia por sesión y grupo" subtitle="DAM y DAW · Matrículas activas por asignatura" />
+      <section className="report-section">
+        <p className="muted">Asistentes: presentes, retrasos y salidas anticipadas. Las ausencias justificadas no se contabilizan como asistentes. Las sesiones sin registros de asistencia se identifican como pendientes.</p>
+        <div className="report-table-wrap">
+          <table className="report-table attendance-report-table">
+            <thead>
+              <tr>
+                <th>Sesión</th>
+                <th>Asignatura</th>
+                <th>Matriculados (DAM)</th>
+                <th>Asistentes (DAM)</th>
+                <th>Matriculados (DAW)</th>
+                <th>Asistentes (DAW)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.sesiones.map((row) => (
+                <tr key={row.sesionId}>
+                  <td><strong>{formatDateTime(row.fecha)}</strong><div>{row.sesion}</div>{!row.asistenciaRegistrada && <small className="muted">Sin asistencia registrada</small>}</td>
+                  <td>{row.asignatura}</td>
+                  <td>{row.matriculadosDAM}</td>
+                  <td>{row.asistenciaRegistrada ? row.asistentesDAM : "—"}</td>
+                  <td>{row.matriculadosDAW}</td>
+                  <td>{row.asistenciaRegistrada ? row.asistentesDAW : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {report.sesiones.length === 0 && <p className="muted">No hay sesiones de clase para mostrar.</p>}
         </div>
       </section>
     </article>
