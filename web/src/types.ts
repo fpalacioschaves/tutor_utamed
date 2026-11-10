@@ -503,3 +503,17 @@ export type AlertsResponse = {
   total: number;
 };
 
+
+export type SessionGroupsReportResponse = {
+  sesiones: Array<{
+    sesionId: number;
+    sesion: string;
+    fecha: string;
+    asignatura: string;
+    matriculadosDAM: number;
+    asistentesDAM: number;
+    matriculadosDAW: number;
+    asistentesDAW: number;
+    asistenciaRegistrada: boolean;
+  }>;
+};
