@@ -44,6 +44,76 @@ async function getSubject(subjectId: number) {
   });
 }
 
+
+/**
+ * Resumen por sesión y ciclo. Los matriculados son los alumnos activos
+ * con matrícula activa en la asignatura; las clases comunes no se duplican.
+ */
+reportsRouter.get("/session-groups", async (_req, res, next) => {
+  try {
+    const sessions = await prisma.sesion.findMany({
+      where: {
+        tipo: "CLASE",
+        estado: { not: "CANCELADA" },
+      },
+      include: {
+        asignatura: {
+          include: {
+            matriculas: {
+              where: { activa: true, alumno: { activo: true } },
+              select: { alumnoId: true, alumno: { select: { grupo: { select: { nombre: true } } } } },
+            },
+          },
+        },
+        registros: {
+          select: { alumnoId: true, estadoAsistencia: true },
+        },
+      },
+      orderBy: [{ inicio: "asc" }, { id: "asc" }],
+    });
+
+    const rows = sessions.map((session) => {
+      const matriculados = { DAM: 0, DAW: 0 };
+      const asistentes = { DAM: 0, DAW: 0 };
+      const registeredGroups = new Map<number, "DAM" | "DAW">();
+      for (const enrollment of session.asignatura.matriculas) {
+        const name = enrollment.alumno.grupo?.nombre.trim().toUpperCase();
+        if (name !== "DAM" && name !== "DAW") continue;
+        // Evita contar por duplicado a un alumno con varias matrículas.
+        if (registeredGroups.has(enrollment.alumnoId)) continue;
+        registeredGroups.set(enrollment.alumnoId, name);
+        matriculados[name] += 1;
+      }
+      let registrosAsistencia = 0;
+      for (const record of session.registros) {
+        if (record.estadoAsistencia !== null) registrosAsistencia += 1;
+        const group = registeredGroups.get(record.alumnoId);
+        if (!group) continue;
+        if (
+          record.estadoAsistencia === "PRESENTE" ||
+          record.estadoAsistencia === "RETRASO" ||
+          record.estadoAsistencia === "SALIDA_ANTICIPADA"
+        ) asistentes[group] += 1;
+      }
+      return {
+        sesionId: session.id,
+        sesion: session.titulo || session.tema || `Sesión #${session.id}`,
+        fecha: session.inicio,
+        asignatura: session.asignatura.nombre,
+        matriculadosDAM: matriculados.DAM,
+        asistentesDAM: asistentes.DAM,
+        matriculadosDAW: matriculados.DAW,
+        asistentesDAW: asistentes.DAW,
+        asistenciaRegistrada: registrosAsistencia > 0,
+      };
+    });
+
+    res.json({ sesiones: rows });
+  } catch (error) {
+    next(error);
+  }
+});
+
 reportsRouter.get("/attendance/:subjectId", async (req, res, next) => {
   try {
     const subjectId = Number(req.params.subjectId);
