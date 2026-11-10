@@ -357,12 +357,12 @@ sessionsRouter.get("/:id", async (req, res, next) => {
           activa: true,
           alumno: { activo: true },
         },
-        include: { alumno: true },
+        include: { alumno: { include: { grupo: { select: { id: true, nombre: true } } } } },
         orderBy: [{ alumno: { apellidos: "asc" } }, { alumno: { nombre: "asc" } }],
       }),
       prisma.registroSesion.findMany({
         where: { sesionId: id },
-        include: { alumno: true },
+        include: { alumno: { include: { grupo: { select: { id: true, nombre: true } } } } },
       }),
     ]);
 
