@@ -23,6 +23,7 @@ type SessionDeletionImpact = {
 };
 
 type AttendanceFilter = "ALL" | "UNREGISTERED" | AttendanceState;
+type GroupFilter = "ALL" | "DAM" | "DAW";
 
 const ATTENDANCE_OPTIONS: Array<{ value: AttendanceState; label: string }> = [
   { value: "PRESENTE", label: "Presente" },
@@ -58,6 +59,7 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
   const [success, setSuccess] = useState(false);
   const [search, setSearch] = useState("");
   const [attendanceFilter, setAttendanceFilter] = useState<AttendanceFilter>("ALL");
+  const [groupFilter, setGroupFilter] = useState<GroupFilter>("ALL");
 
   async function load() {
     setLoading(true);
@@ -109,18 +111,28 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
     [session],
   );
 
+  const groupCounts = useMemo(() => {
+    const counts = { DAM: 0, DAW: 0 };
+    for (const student of session?.alumnos ?? []) {
+      const group = student.grupo?.nombre.trim().toUpperCase();
+      if (group === "DAM" || group === "DAW") counts[group] += 1;
+    }
+    return counts;
+  }, [session]);
+
   const pendingAttendance = records.filter((record) => record.estadoAsistencia === null).length;
   const visibleRecords = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("es");
     return records.filter((record) => {
       const student = studentsById.get(record.alumnoId);
       if (!student) return false;
+      if (groupFilter !== "ALL" && student.grupo?.nombre.trim().toUpperCase() !== groupFilter) return false;
       if (attendanceFilter === "UNREGISTERED" && record.estadoAsistencia !== null) return false;
       if (attendanceFilter !== "ALL" && attendanceFilter !== "UNREGISTERED" && record.estadoAsistencia !== attendanceFilter) return false;
       if (!query) return true;
       return `${student.apellidos} ${student.nombre} ${student.email ?? ""}`.toLocaleLowerCase("es").includes(query);
     });
-  }, [records, studentsById, search, attendanceFilter]);
+  }, [records, studentsById, search, attendanceFilter, groupFilter]);
 
   function updateRecord(alumnoId: number, patch: Partial<DraftRecord>) {
     if (session?.estado === "CANCELADA") return;
@@ -288,6 +300,14 @@ export function SessionDetailPage({ sessionId, onBack, onDirtyChange }: Props) {
       {message && <div className={`notice-banner ${success ? "success" : "error"}`} role={success ? "status" : "alert"}>{message}</div>}
 
       <section className="detail-toolbar" aria-label="Filtrar alumnado de la sesión">
+        <label>
+          Grupo
+          <select value={groupFilter} onChange={(event) => setGroupFilter(event.target.value as GroupFilter)}>
+            <option value="ALL">Todos ({records.length})</option>
+            <option value="DAM">DAM ({groupCounts.DAM})</option>
+            <option value="DAW">DAW ({groupCounts.DAW})</option>
+          </select>
+        </label>
         <label className="search-field">
           <span>Buscar alumno</span>
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre o correo" />
