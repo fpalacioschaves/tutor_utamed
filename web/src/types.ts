@@ -151,6 +151,7 @@ export type StudentInSession = {
   nombre: string;
   apellidos: string;
   email: string | null;
+  grupo: { id: number; nombre: string } | null;
   registro: SessionRecord | null;
 };
 
